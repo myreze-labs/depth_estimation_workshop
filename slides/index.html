@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,6 +11,7 @@
     <link rel="stylesheet" href="../css/slides-custom.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+
 <body>
     <div class="reveal">
         <div class="slides">
@@ -38,32 +40,140 @@
             </section>
 
             <!-- Machine Learning Section -->
-            <section>
-                <section>
-                    <h2>Machine Learning Background</h2>
-                    <p>Basic introduction to machine learning concepts</p>
-                </section>
-                <section>
-                    <h3>What is Machine Learning?</h3>
-                    <p>Systems that learn from data without being explicitly programmed</p>
-                    <img src="images/ml-concept.jpg" alt="Machine Learning Concept" class="stretch">
-                </section>
-                <section>
-                    <h3>Training ML Models</h3>
-                    <ul>
-                        <li>Data collection and preparation</li>
-                        <li>Model architecture selection</li>
-                        <li>Training process</li>
-                        <li>Validation and testing</li>
-                        <li>Deployment</li>
-                    </ul>
-                </section>
-                <section>
-                    <h3>Installing PyTorch Models</h3>
-                    <pre><code class="python">pip install torch torchvision
-import torch
-model = torch.hub.load('pytorch/vision', 'resnet50', pretrained=True)</code></pre>
-                </section>
+            <section data-background-color="#FFFFE6">
+                <img src="visuals/paradigm.png" width="80%"">
+                <small>
+                    <font color=" #262a24"> Machine learning - a programming paradigm </font>
+                </small>
+                <small>
+                    <font color="#262a24">Chollet, F. (2021). Deep learning with Python. Simon and Schuster.</font>
+                </small>
+            </section>
+
+            <section data-background-color="#FFFFE6">
+                <img src="visuals/regression_model_6.png" width="80%"">
+            </section>
+
+            <section data-background-color=" #181a18" style="text-align:left;">
+                <font color="#ffffcc">How is AI/ML typically used? </font>
+
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Detecting features and patterns </p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Categorize stuff</p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Cluster similar things together</p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Predicting coming elements in a sequence</p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Determine policies (reinforcement learning)
+                </p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Generate stuff</p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Generate expressive representations</p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Mimic various mechanisms and things</p>
+                <p></p>
+            </section>
+
+
+
+
+            <section
+                data-background-iframe="https://www.esa.int/Applications/Observing_the_Earth/Ph-sat/Next_artificial_intelligence_mission_selected"
+                data-background-interactive>
+                <font color="#ffffcc"> Detecting features and patterns</font>
+            </section>
+
+
+            <section data-background-color="#181a18">
+                <font color="#ffffcc">Categorization</font>
+                <div>
+                    <iframe width="560" height="315" src="https://www.youtube.com/embed/ujNfhu-150A?si=4VBjin39oTLuxqcJ"
+                        title="YouTube video player" frameborder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+                </div>
+            </section>
+
+            <section data-background-color="#181a18">
+                <font color="#ffffcc"> Clustering</font>
+                <img src="visuals/clustering.png">
+                <small>Image from:
+                    https://towardsdatascience.com/the-5-clustering-algorithms-data-scientists-need-to-know-a36d136ef68
+                </small>
+            </section>
+
+            <section data-background-image="visuals/blloch_2.png" data-background-opacity=1.0
+                data-background-size="100%">
+                <p>&nbsp;</p>
+                <p>&nbsp;</p>
+                <font color="#111166"> Series prediction</font>
+            </section>
+
+
+            <section data-background-color="#181a18">
+                <font color="#ffffcc"> Determination of optimal policies</font>
+            </section>
+
+
+            <section data-background-image="visuals/hospital.png" data-background-size="contain">
+                <p>&nbsp;</p>
+                <p>&nbsp;</p>
+                <p>&nbsp;</p>
+
+                <div class="citation">
+                    <p
+                        style="font-size: 14px; background-color: rgba(0, 0, 0, 0.5); color: #fff; padding: 5px 10px; margin: 10px 0;">
+                        Li, J., Wang, S., Zhang, M., Li, W., Lai, Y., Kang, X., ... & Liu, Y. (2024). Agent hospital: A
+                        simulacrum
+                        of hospital with evolvable medical agents. arXiv preprint arXiv:2405.02957.
+                    </p>
+                </div>
+            </section>
+
+
+
+            <section data-background-color="#181a18">
+                <img src="visuals/OIG.jpeg" width="40%">
+                <p>
+                    <font color="#ffffcc"> Generating stuff</font>
+                </p>
+
+            </section>
+
+            <section data-background-color="#181a18">
+                <p>
+                    <font color="#ffffcc"> Generating expressive representations</font>
+                </p>
+            </section>
+
+            <section data-background-iframe="https://graceavery.com/word2vec-fish-music-bass/"
+                data-background-interactive>
+                <div
+                    style="position: absolute; width: 70%; right: 0; box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 5px 25px rgba(0,0,0,0.2); background-color: rgba(0, 0, 0, 0.9); color: #fff; padding: 20px; font-size: 20px; text-align: left;">
+                    Word2vec : Nelson, P., Urs, N. V., & Kasicheyanula, T.
+                    R. (2022). Progress in Natural Language Processing and Language Understanding. In Bridging Human
+                    Intelligence and Artificial Intelligence (pp. 83-103). Springer, Cham.
+                </div>
+            </section>
+
+            <section data-background-video="visuals/sdf_grid_lq.mp4" data-background-video-loop="true"
+                data-background-size="contain">
+                <font color="#ffffcc">Regression (mimicking stuff)</font>
+                <div class="citation">
+                    <p
+                        style="font-size: 14px; background-color: rgba(0, 0, 0, 0.5); color: #fff; padding: 5px 10px; margin: 10px 0;">
+                        Müller, T., Evans, A., Schied, C., & Keller, A. (2022). Instant neural graphics primitives
+                        with
+                        a multiresolution hash encoding. ACM transactions on graphics (TOG), 41(4), 1-15.
+                    </p>
+                </div>
+            </section>
+
+            <section data-background-color=" #181a18" style="text-align:left;">
+                <img src="visuals/extrapolation.png" width="80%">
+            </section>
+
+            <section data-background-color=" #181a18" style="text-align:left;">
+                <font color="#ffffcc">When not to use it? </font>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> Efficient analytical solutions exists </p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> More exact analytical solutions exists</p>
+                <p class="fragment"><i class="fas fa-kiwi-bird"></i> When you lack sufficient data</p>
+                <p></p>
             </section>
 
             <!-- Licensing Section -->
@@ -298,8 +408,9 @@ model = torch.hub.load('pytorch/vision', 'resnet50', pretrained=True)</code></pr
             progress: true,
             center: true,
             transition: 'slide',
-            plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+            plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
         });
     </script>
 </body>
-</html> 
+
+</html>
