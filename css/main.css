@@ -1,0 +1,614 @@
+/* Main CSS for Myreze-Labs Depth Estimation Workshop */
+
+/* Global Styles */
+:root {
+    --primary-bg: #121212;
+    --secondary-bg: #1e1e1e;
+    --tertiary-bg: #2d2d2d;
+    --neon-yellow: #ffffff;
+    --neon-green: #ffcfaf;
+    --neon-orange: #ff6600;
+    --neon-blue: #f6ffc2;
+    --text-light: #f5f5f5;
+    --text-accent: #ffff00;
+    --card-bg: rgba(30, 30, 30, 0.8);
+    --card-hover: rgba(45, 45, 45, 0.9);
+    --table-header-bg: #2d2d2d;
+    --table-row-odd: rgba(45, 45, 45, 0.7);
+    --table-row-even: rgba(30, 30, 30, 0.7);
+    --table-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: var(--text-light);
+    background-color: var(--primary-bg);
+    min-height: 100vh;
+}
+
+a {
+    text-decoration: none;
+    color: var(--text-accent);
+    transition: color 0.3s ease;
+}
+
+a:hover {
+    color: var(--neon-green);
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+h1 {
+    font-size: 2.5rem;
+    color: var(--neon-yellow);
+}
+
+h2 {
+    font-size: 2rem;
+    color: var(--neon-green);
+}
+
+h3 {
+    font-size: 1.5rem;
+    color: var(--neon-orange);
+}
+
+.container {
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* Header */
+header {
+    background-color: var(--secondary-bg);
+    padding: 1rem 2rem;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+}
+
+.logo {
+    max-width: 150px;
+    height: auto;
+}
+
+.logo-small {
+    max-width: 100px;
+    height: auto;
+    margin-right: 2rem;
+}
+
+.logo-medium {
+    max-width: 150px;
+    height: auto;
+    margin-bottom: 1rem;
+}
+
+/* Landing Page */
+.landing-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, var(--primary-bg) 0%, var(--secondary-bg) 100%);
+}
+
+/* Landing Card */
+.landing-card {
+    background-color: var(--secondary-bg);
+    border: 2px solid white;
+    border-radius: 10px;
+    padding: 2.5rem 2rem;
+    max-width: 550px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 0 30px rgba(255, 255, 255, 0.1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+}
+
+.title-container {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+.main-title {
+    font-size: 2.5rem;
+    margin-bottom: 0.3rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-weight: 700;
+}
+
+.subtitle {
+    font-size: 1.5rem;
+    margin-bottom: 0.8rem;
+    font-weight: 500;
+}
+
+.description {
+    margin-bottom: 1.5rem;
+    max-width: 90%;
+    line-height: 1.5;
+}
+
+.description p {
+    font-size: 1rem;
+    color: var(--text-light);
+}
+
+@keyframes glow {
+    from {
+        text-shadow: 0 0 5px var(--neon-yellow), 0 0 10px var(--neon-yellow);
+    }
+    to {
+        text-shadow: 0 0 10px var(--neon-yellow), 0 0 20px var(--neon-yellow), 0 0 30px var(--neon-yellow);
+    }
+}
+
+.enter-button-container {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.enter-button {
+    display: inline-block;
+    padding: 1rem 2.5rem;
+    background-color: var(--tertiary-bg);
+    color: white;
+    border: 1px solid white;
+    border-radius: 5px;
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-weight: 500;
+    letter-spacing: 1px;
+}
+
+.enter-button:hover {
+    background-color: white;
+    color: var(--primary-bg);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
+}
+
+.enter-button i {
+    margin-left: 10px;
+}
+
+/* Hub Page */
+.hub-page main {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.nav-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.card {
+    background-color: var(--card-bg);
+    border-radius: 10px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--tertiary-bg);
+}
+
+.card:hover {
+    transform: translateY(-10px);
+    background-color: var(--card-hover);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    border-color: var(--neon-yellow);
+}
+
+.card-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    color: var(--neon-green);
+}
+
+.card h2 {
+    margin-bottom: 0.5rem;
+}
+
+.card p {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+/* Twitter Feed */
+.twitter-feed {
+    background-color: var(--secondary-bg);
+    border-radius: 10px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.twitter-feed h2 {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    color: var(--neon-blue);
+}
+
+.twitter-feed h2 i {
+    margin-right: 0.5rem;
+}
+
+#twitter-container {
+    min-height: 500px;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.twitter-timeline {
+    width: 100%;
+}
+
+.twitter-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+}
+
+.tweet-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.8rem 1.5rem;
+    background-color: #1DA1F2;
+    color: white !important;
+    border-radius: 30px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: none;
+    font-size: 1rem;
+    text-decoration: none;
+}
+
+.tweet-button:hover {
+    background-color: #0c85d0;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(29, 161, 242, 0.3);
+    color: white !important;
+}
+
+.tweet-button i {
+    margin-right: 8px;
+    font-size: 1.1rem;
+}
+
+.loading-message {
+    text-align: center;
+    color: var(--text-light);
+    font-style: italic;
+}
+
+/* Resources Page */
+.resources-page main {
+    max-width: 1200px;
+    margin: 2rem auto;
+    padding: 0 2rem;
+}
+
+.resource-section {
+    margin-bottom: 3rem;
+}
+
+.resource-section h2 {
+    display: flex;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.resource-section h2 i {
+    margin-right: 0.5rem;
+}
+
+.resource-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+
+.resource-card {
+    background-color: var(--card-bg);
+    border-radius: 10px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid var(--tertiary-bg);
+}
+
+.resource-card:hover {
+    transform: translateY(-5px);
+    background-color: var(--card-hover);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+    border-color: var(--neon-green);
+}
+
+.resource-card h3 {
+    margin-bottom: 0.5rem;
+}
+
+.resource-card p {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    flex-grow: 1;
+}
+
+.resource-link {
+    color: var(--neon-blue);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-weight: 600;
+}
+
+.resource-link i {
+    margin-right: 0.5rem;
+}
+
+/* Back Button */
+.back-button {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background-color: var(--tertiary-bg);
+    color: var(--text-light);
+    border-radius: 5px;
+    transition: all 0.3s ease;
+    margin-left: auto;
+}
+
+.back-button:hover {
+    background-color: var(--neon-green);
+    color: var(--primary-bg);
+}
+
+.back-button i {
+    margin-right: 0.5rem;
+}
+
+/* Footer */
+footer {
+    background-color: var(--secondary-bg);
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 3rem;
+}
+
+footer p {
+    color: var(--text-light);
+}
+
+/* Resource Table */
+.section-intro {
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    color: var(--text-light);
+}
+
+.resource-table-container {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.resource-table {
+    width: 100%;
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: var(--secondary-bg);
+    border: 1px solid var(--table-border);
+}
+
+.resource-table th {
+    background-color: var(--table-header-bg);
+    color: var(--neon-yellow);
+    font-weight: 600;
+    text-align: left;
+    padding: 1rem;
+    border-bottom: 2px solid var(--table-border);
+}
+
+.resource-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid var(--table-border);
+    color: var(--text-light);
+}
+
+.resource-table tbody tr:nth-child(odd) {
+    background-color: var(--table-row-odd);
+}
+
+.resource-table tbody tr:nth-child(even) {
+    background-color: var(--table-row-even);
+}
+
+.resource-table tbody tr:hover {
+    background-color: var(--tertiary-bg);
+}
+
+.resource-table a {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    background-color: var(--tertiary-bg);
+    color: var(--neon-blue);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    text-decoration: none;
+}
+
+.resource-table a:hover {
+    background-color: var(--neon-blue);
+    color: var(--primary-bg);
+    transform: translateY(-2px);
+}
+
+.resource-table a i {
+    margin-right: 0.5rem;
+}
+
+/* New styles for 2D to 3D resources table */
+.large-table th,
+.large-table td {
+    padding: 0.8rem 0.6rem;
+}
+
+.links-cell {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.links-cell a {
+    margin-bottom: 0.3rem;
+    white-space: nowrap;
+    min-width: 90px;
+}
+
+.resource-table .links-cell a:nth-child(1) {
+    background-color: var(--tertiary-bg);
+    color: var(--neon-blue);
+}
+
+.resource-table .links-cell a:nth-child(2) {
+    background-color: #24292e;
+    color: #ffffff;
+}
+
+.resource-table .links-cell a:nth-child(3) {
+    background-color: #ff9d00;
+    color: #ffffff;
+}
+
+.large-table td:last-child {
+    max-width: 300px;
+    font-size: 0.95rem;
+}
+
+.large-table td:nth-child(3) {
+    text-align: center;
+}
+
+.table-note {
+    font-size: 0.9rem;
+    color: var(--text-light);
+    opacity: 0.8;
+    font-style: italic;
+    margin-top: -0.5rem;
+    margin-bottom: 2rem;
+}
+
+/* Mobile responsive for tables */
+@media (max-width: 768px) {
+    .resource-table th,
+    .resource-table td {
+        padding: 0.6rem;
+        font-size: 0.85rem;
+    }
+    
+    .resource-table a {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+    }
+    
+    .large-table td:last-child {
+        max-width: 200px;
+        font-size: 0.85rem;
+    }
+    
+    .links-cell {
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    
+    .links-cell a {
+        width: 100%;
+        margin-bottom: 0;
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-title {
+        font-size: 2.5rem;
+    }
+
+    .subtitle {
+        font-size: 1.3rem;
+    }
+    
+    .landing-card {
+        padding: 2rem;
+        margin: 1rem;
+    }
+    
+    .description {
+        max-width: 100%;
+    }
+
+    header {
+        flex-direction: column;
+        text-align: center;
+        padding: 1rem;
+    }
+
+    .logo-small {
+        margin-right: 0;
+        margin-bottom: 1rem;
+    }
+
+    .nav-cards {
+        grid-template-columns: 1fr;
+    }
+
+    footer {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+    }
+} 

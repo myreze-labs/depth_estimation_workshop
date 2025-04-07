@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D to 3D Generative AI Resources</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        th {
+            background-color: #3498db;
+            color: white;
+            font-weight: bold;
+            text-align: left;
+            padding: 12px;
+            position: sticky;
+            top: 0;
+        }
+        td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #ddd;
+            vertical-align: top;
+        }
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+        tr:hover {
+            background-color: #e9f7fe;
+        }
+        a {
+            color: #2980b9;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+            color: #1a5276;
+        }
+        .not-available {
+            color: #95a5a6;
+            font-style: italic;
+        }
+        .description {
+            max-width: 300px;
+        }
+        
+        /* Responsive design */
+        @media screen and (max-width: 1000px) {
+            table {
+                display: block;
+                overflow-x: auto;
+            }
+            .description {
+                max-width: 200px;
+            }
+        }
+        @media screen and (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            th, td {
+                padding: 8px;
+            }
+            .description {
+                max-width: 150px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>2D to 3D Generative AI Resources</h1>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Organization</th>
+                <th>Year</th>
+                <th>Project Page</th>
+                <th>GitHub Repository</th>
+                <th>Hugging Face</th>
+                <th>Paper</th>
+                <th>License</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- NVIDIA GEN3C -->
+            <tr>
+                <td>GEN3C</td>
+                <td>NVIDIA Research, Toronto AI Lab</td>
+                <td>2025</td>
+                <td><a href="https://research.nvidia.com/labs/toronto-ai/GEN3C/" target="_blank">Project Page</a></td>
+                <td><span class="not-available">Coming Soon</span></td>
+                <td><a href="https://huggingface.co/papers/2503.03751" target="_blank">Paper Only</a></td>
+                <td><a href="https://arxiv.org/abs/2503.03751" target="_blank">arXiv:2503.03751</a></td>
+                <td><span class="not-available">Not Specified</span></td>
+                <td class="description">A generative video model with precise Camera Control and temporal 3D Consistency using a 3D cache of point clouds for camera trajectory control.</td>
+            </tr>
+            
+            <!-- Hi3DGen -->
+            <tr>
+                <td>Hi3DGen</td>
+                <td>CUHK (Shenzhen), ByteDance, Tsinghua University</td>
+                <td>2025</td>
+                <td><a href="https://stable-x.github.io/Hi3DGen/" target="_blank">Project Page</a></td>
+                <td><a href="https://github.com/Stable-X/Hi3DGen" target="_blank">GitHub</a></td>
+                <td><a href="https://huggingface.co/spaces/Stable-X/Hi3DGen" target="_blank">Live Demo</a></td>
+                <td><a href="https://arxiv.org/abs/2503.22236" target="_blank">arXiv:2503.22236</a></td>
+                <td>MIT License</td>
+                <td class="description">A framework for generating high-fidelity 3D geometry from images via normal bridging, using normal maps as an intermediate representation.</td>
+            </tr>
+            
+            <!-- Hunyuan-3D -->
+            <tr>
+                <td>Hunyuan3D 2.0</td>
+                <td>Tencent</td>
+                <td>2025</td>
+                <td><a href="https://www.hunyuan-3d.com/" target="_blank">Project Page</a></td>
+                <td><a href="https://github.com/Tencent/Hunyuan3D-2" target="_blank">GitHub</a></td>
+                <td><a href="https://huggingface.co/tencent/Hunyuan3D-2" target="_blank">Model</a></td>
+                <td><a href="https://arxiv.org/abs/2501.12202" target="_blank">arXiv:2501.12202</a></td>
+                <td>Tencent Hunyuan 3D 2.0 Community License</td>
+                <td class="description">An advanced large-scale 3D synthesis system for generating high-resolution textured 3D assets with shape generation and texture synthesis models.</td>
+            </tr>
+            
+            <!-- Stable Virtual Camera -->
+            <tr>
+                <td>Stable Virtual Camera (Seva)</td>
+                <td>Stability AI</td>
+                <td>2025</td>
+                <td><a href="https://stable-virtual-camera.github.io/" target="_blank">Project Page</a></td>
+                <td><a href="https://github.com/Stability-AI/stable-virtual-camera" target="_blank">GitHub</a></td>
+                <td><a href="https://huggingface.co/stabilityai/stable-zero123" target="_blank">Model (Auth Required)</a></td>
+                <td><a href="https://arxiv.org/abs/2503.14489" target="_blank">arXiv:2503.14489</a></td>
+                <td>Non-commercial</td>
+                <td class="description">A 1.3B generalist diffusion model for Novel View Synthesis, generating 3D consistent novel views of a scene from any number of input views.</td>
+            </tr>
+            
+            <!-- DreamFusion -->
+            <tr>
+                <td>DreamFusion</td>
+                <td>Google Research, UC Berkeley</td>
+                <td>2022</td>
+                <td><a href="https://dreamfusion3d.github.io/" target="_blank">Project Page</a></td>
+                <td><a href="https://github.com/ashawkey/stable-dreamfusion" target="_blank">GitHub (Unofficial)</a></td>
+                <td><a href="https://huggingface.co/Webaverse/Stable-Dreamfusion" target="_blank">Model</a></td>
+                <td><a href="https://arxiv.org/abs/2209.14988" target="_blank">arXiv:2209.14988</a></td>
+                <td>Apache-2.0 (Unofficial Implementation)</td>
+                <td class="description">A text-to-3D synthesis method using pretrained 2D diffusion models without requiring 3D training data, optimizing Neural Radiance Fields.</td>
+            </tr>
+            
+            <!-- Zero-1-to-3 -->
+            <tr>
+                <td>Zero-1-to-3</td>
+                <td>Columbia University, Toyota Research Institute</td>
+                <td>2023</td>
+                <td><a href="https://zero123.cs.columbia.edu/" target="_blank">Project Page</a></td>
+                <td><a href="https://github.com/cvlab-columbia/zero123" target="_blank">GitHub</a></td>
+                <td><a href="https://huggingface.co/spaces/cvlab/zero123-live" target="_blank">Live Demo</a></td>
+                <td><a href="https://arxiv.org/abs/2303.11328" target="_blank">arXiv:2303.11328</a></td>
+                <td>MIT License</td>
+                <td class="description">A framework for changing the camera viewpoint of an object given just a single RGB image, leveraging geometric priors from diffusion models.</td>
+            </tr>
+        </tbody>
+    </table>
+</body>
+</html>

@@ -1,0 +1,1864 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Shader mask generator</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+
+<body>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+            }
+        }
+    </script>
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Orbit controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        directionalLight.position.set(5, 5, 5);
+        scene.add(directionalLight);
+
+        // Global variables
+        let mesh;
+        let modelCentroid = new THREE.Vector3(0, 0, 1);
+        let shaderMode = 0; // 0: original material, 1: color visualization, 2: transparency visualization
+        const originalMaterials = new Map();
+        let initialPixelCounts = null;
+        let hasCalculatedInitialCounts = false;
+        let frameCount = 0;
+        let updateInterval = 10;
+        let dataTexture = null;
+        let triangleColorMap = null;
+        let triangleCountTexture = null;
+        let initialNormalDots = null;
+        let hasCalculatedInitialDots = false;
+        let renderTarget, countingScene;
+        let currentModelGroup = null; // Group to hold the current model
+        let cameraMovementMode = 'free'; // 'free', 'zoom', 'rotate', 'spiral', 'sway'
+        let cameraAnimationActive = false;
+        let cameraAnimationStartTime = 0;
+        let originalCameraPosition = new THREE.Vector3();
+        let originalCameraRotation = new THREE.Euler();
+        let cameraAnimationCycleDuration = 10; // seconds for a full cycle
+        let cameraAnimationDelay = 2; // seconds delay before movement starts
+        let cameraMovementGui;
+        let controlsVisible = true; // Track visibility state of UI controls
+
+        // Model cycling functionality
+        const publicModels = [
+            'model_0.glb',  // Current model
+            'model_1.glb',
+            'model_2.glb',
+            'model_3.glb',
+            'model_4.glb',
+            'model_5.glb',
+            'model_6.glb',
+            'model_7.glb',
+            'model_8.glb',
+            'model_9.glb',
+            'model_10.glb',
+            'model_11.glb',
+            'model_12.glb',
+            'model_13.glb',
+            'model_14.glb',
+            'model_15.glb',
+            'model_16.glb',
+            // Add all other .glb files in your public folder here
+        ];
+
+        let currentModelIndex = 0;
+
+        // Function to load the next model
+        function loadNextModel() {
+            currentModelIndex = (currentModelIndex + 1) % publicModels.length;
+            loadModel(publicModels[currentModelIndex]);
+        }
+
+        // Function to load the previous model
+        function loadPreviousModel() {
+            currentModelIndex = (currentModelIndex - 1 + publicModels.length) % publicModels.length;
+            loadModel(publicModels[currentModelIndex]);
+        }
+
+        // Load a model automatically when the page loads
+        //loadModel('buen_3.glb');
+
+        // Function to load a GLB model
+        function loadModel(filename) {
+            console.log(`Loading model: ${filename}`);
+            modelNameDisplay.textContent = `Model: ${filename}`;
+
+            // Unload current model if it exists
+            if (currentModelGroup) {
+                // Remove from scene
+                scene.remove(currentModelGroup);
+
+                // Dispose of geometries and materials
+                currentModelGroup.traverse((child) => {
+                    if (child.isMesh) {
+                        // Check if this mesh has a backface mesh and remove it
+                        if (child.userData.backFaceMesh) {
+                            scene.remove(child.userData.backFaceMesh);
+                            child.userData.backFaceMesh = null;
+                        }
+
+                        if (child.geometry) {
+                            child.geometry.dispose();
+                        }
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(material => material.dispose());
+                            } else {
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+
+                // Clear references
+                currentModelGroup = null;
+                mesh = null;
+                originalMaterials.clear();
+
+                // Reset shader state
+                shaderMode = 0;
+                hasCalculatedInitialCounts = false;
+                initialPixelCounts = null;
+                dataTexture = null;
+
+                // Reset shader-related flags
+                initialNormalDots = null;
+                hasCalculatedInitialDots = false;
+
+                // Clean up render targets if they exist
+                if (renderTarget) {
+                    renderTarget.dispose();
+                    renderTarget = null;
+                }
+
+                console.log('Previous model unloaded');
+            }
+
+            // Create a new group for the model
+            currentModelGroup = new THREE.Group();
+            scene.add(currentModelGroup);
+
+            // Reset camera to initial position
+            camera.position.set(0, 0, 0);
+            camera.rotation.set(0, 0, Math.PI);
+
+            // Load the new GLB file
+            const loader = new GLTFLoader();
+            const glbUrl = `./public/${filename}`;
+
+            loader.load(glbUrl, (gltf) => {
+                // Add the loaded scene to our model group
+                currentModelGroup.add(gltf.scene);
+
+                // Find all meshes in the scene
+                let meshesWithGeometry = [];
+                gltf.scene.traverse((child) => {
+                    if (child.isMesh && child.geometry) {
+                        originalMaterials.set(child, child.material);
+                        meshesWithGeometry.push(child);
+                    }
+                });
+
+                // Use the first mesh with geometry
+                if (meshesWithGeometry.length > 0) {
+                    mesh = meshesWithGeometry[0];
+
+                    // Calculate the centroid of the model's vertices
+                    const geometry = mesh.geometry;
+                    const positionAttribute = geometry.attributes.position;
+                    const vertexCount = positionAttribute.count;
+
+                    // Initialize centroid and create a bounding box
+                    modelCentroid.set(0, 0, 0);
+                    const boundingBox = new THREE.Box3();
+
+                    // Calculate bounding box and sum all vertex positions
+                    const vertex = new THREE.Vector3();
+                    for (let i = 0; i < vertexCount; i++) {
+                        vertex.fromBufferAttribute(positionAttribute, i);
+                        // Apply mesh's world transform to get world position
+                        vertex.applyMatrix4(mesh.matrixWorld);
+                        boundingBox.expandByPoint(vertex);
+                        modelCentroid.add(vertex);
+                    }
+
+                    // Divide by vertex count to get average
+                    if (vertexCount > 0) {
+                        modelCentroid.divideScalar(vertexCount);
+                    }
+
+                    console.log('Model centroid:', modelCentroid);
+                    console.log('Bounding box:', boundingBox);
+
+                    // Update camera to look at the model centroid
+                    camera.lookAt(modelCentroid);
+                    controls.target.copy(modelCentroid);
+
+                    // Calculate the required FOV to frame the bounding box
+                    fitCameraToObject(camera, boundingBox, modelCentroid);
+
+                    controls.update();
+
+                    // Ensure we start with the normal texture shader (original material)
+                    if (shaderMode !== 0) {
+                        toggleMaterial(); // Toggle to original material if we're using custom shader
+                    }
+
+                    console.log('Initial shader state: original material (normal texture)');
+                } else {
+                    console.warn('No meshes with geometry found in the model');
+                    controls.enabled = true;
+                }
+
+                // Apply custom shader by default
+                if (mesh) {
+                    toggleMaterial();
+                    toggleMaterial();
+                }
+
+                console.log(`Model ${filename} loaded successfully`);
+
+                // Create GUI for camera movement controls
+                setupCameraControls();
+            }, undefined, (error) => {
+                console.error(`Error loading GLB ${filename}:`, error);
+            });
+        }
+
+        // Function to fit camera FOV to object bounding box
+        function fitCameraToObject(camera, boundingBox, centroid) {
+            // Get bounding box dimensions
+            const size = new THREE.Vector3();
+            boundingBox.getSize(size);
+
+            // Get the camera position
+            const cameraPosition = camera.position.clone();
+
+            // Calculate distance from camera to centroid
+            const distanceToCenter = cameraPosition.distanceTo(centroid);
+
+            // Calculate the required FOV
+            // We need to consider both horizontal and vertical dimensions
+            const aspect = window.innerWidth / window.innerHeight;
+
+            // Calculate the FOV needed for width and height
+            const boundingWidth = size.x;
+            const boundingHeight = size.y;
+
+            // Calculate the FOV in radians
+            const fovRadiansHeight = 2 * Math.atan(boundingHeight / (2 * distanceToCenter));
+            const fovRadiansWidth = 2 * Math.atan(boundingWidth / (2 * distanceToCenter * aspect));
+
+            // Use the larger FOV to ensure the entire object is visible
+            const fovRadians = Math.max(fovRadiansHeight, fovRadiansWidth);
+
+            // Convert to degrees and add a small margin (10%)
+            const fovDegrees = (fovRadians * 180 / Math.PI) * 1.1;
+
+            console.log('Calculated FOV:', fovDegrees);
+
+            // Update camera FOV
+            camera.fov = fovDegrees;
+            camera.updateProjectionMatrix();
+
+            return fovDegrees;
+        }
+
+        // Function to calculate normal-camera dot products for each triangle
+        function calculateNormalDotProducts(geometry, camera, object) {
+            const positionAttr = geometry.attributes.position;
+            const indexAttr = geometry.index;
+            const triangleCount = indexAttr ? indexAttr.count / 3 : positionAttr.count / 3;
+            const dotProducts = new Float32Array(triangleCount);
+
+            // Camera position in world space
+            const cameraPosition = new THREE.Vector3();
+            camera.getWorldPosition(cameraPosition);
+
+            // Object's world matrix for transforming positions and normals
+            const worldMatrix = object.matrixWorld;
+            const normalMatrix = new THREE.Matrix3().getNormalMatrix(worldMatrix);
+
+            // Temporary vectors
+            const v0 = new THREE.Vector3();
+            const v1 = new THREE.Vector3();
+            const v2 = new THREE.Vector3();
+            const normal = new THREE.Vector3();
+            const edge1 = new THREE.Vector3();
+            const edge2 = new THREE.Vector3();
+            const center = new THREE.Vector3();
+            const viewDirection = new THREE.Vector3();
+
+            // Calculate dot product for each triangle
+            for (let i = 0; i < triangleCount; i++) {
+                // Get vertex indices
+                let idx0, idx1, idx2;
+                if (indexAttr) {
+                    idx0 = indexAttr.getX(i * 3);
+                    idx1 = indexAttr.getX(i * 3 + 1);
+                    idx2 = indexAttr.getX(i * 3 + 2);
+                } else {
+                    idx0 = i * 3;
+                    idx1 = i * 3 + 1;
+                    idx2 = i * 3 + 2;
+                }
+
+                // Get vertex positions in local space
+                v0.set(
+                    positionAttr.getX(idx0),
+                    positionAttr.getY(idx0),
+                    positionAttr.getZ(idx0)
+                );
+                v1.set(
+                    positionAttr.getX(idx1),
+                    positionAttr.getY(idx1),
+                    positionAttr.getZ(idx1)
+                );
+                v2.set(
+                    positionAttr.getX(idx2),
+                    positionAttr.getY(idx2),
+                    positionAttr.getZ(idx2)
+                );
+
+                // Calculate triangle normal in local space
+                edge1.subVectors(v1, v0);
+                edge2.subVectors(v2, v0);
+                normal.crossVectors(edge1, edge2).normalize();
+
+                // Transform vertices and normal to world space
+                v0.applyMatrix4(worldMatrix);
+                v1.applyMatrix4(worldMatrix);
+                v2.applyMatrix4(worldMatrix);
+                normal.applyMatrix3(normalMatrix).normalize();
+
+                // Calculate triangle center in world space
+                center.addVectors(v0, v1).add(v2).multiplyScalar(1 / 3);
+
+                // Calculate view direction from camera to triangle center
+                viewDirection.subVectors(center, cameraPosition).normalize();
+
+                // Calculate absolute value of dot product between normal and view direction
+                // This gives us how aligned the normal is with the view direction
+                // 0 = perpendicular (most stretched), 1 = parallel (least stretched)
+                const dotProduct = Math.abs(normal.dot(viewDirection));
+
+                // Store the dot product
+                dotProducts[i] = dotProduct;
+            }
+
+            return dotProducts;
+        }
+
+        // Function to create a render target for pixel counting
+        function createTriangleCountingRenderer(width, height) {
+            // Create a render target
+            const renderTarget = new THREE.WebGLRenderTarget(width, height, {
+                format: THREE.RGBAFormat,
+                type: THREE.UnsignedByteType
+            });
+
+            // Create a scene for rendering triangles with unique colors
+            const countingScene = new THREE.Scene();
+            countingScene.background = new THREE.Color(0x000000); // Black background
+
+            return {
+                renderTarget,
+                countingScene
+            };
+        }
+
+        // Create a material that assigns a unique color to each triangle
+        function createTriangleIDMaterial(triangleCount) {
+            // Create a map of triangle IDs to colors
+            triangleColorMap = new Map();
+
+            return new THREE.ShaderMaterial({
+                vertexShader: `
+                    in float triangleId;
+                    flat out float vTriangleId;
+                    void main() {
+                        vTriangleId = triangleId;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragmentShader: `
+                    flat in float vTriangleId;
+                    out vec4 fragColor;
+                    
+                    void main() {
+                        // Convert triangle ID to a unique RGB color
+                        float id = vTriangleId;
+                        float r = mod(id, 256.0) / 255.0;
+                        float g = mod(floor(id / 256.0), 256.0) / 255.0;
+                        float b = mod(floor(id / 65536.0), 256.0) / 255.0;
+                        
+                        fragColor = vec4(r, g, b, 1.0);
+                    }
+                `,
+                glslVersion: THREE.GLSL3
+            });
+        }
+
+        // Function to count pixels for each triangle
+        function countTrianglePixels(renderer, renderTarget, triangleCount) {
+            // Read pixels from the render target
+            const width = renderTarget.width;
+            const height = renderTarget.height;
+            const pixelBuffer = new Uint8Array(width * height * 4);
+
+            renderer.readRenderTargetPixels(renderTarget, 0, 0, width, height, pixelBuffer);
+
+            // Count pixels for each triangle
+            const pixelCounts = new Float32Array(triangleCount);
+
+            for (let i = 0; i < pixelBuffer.length; i += 4) {
+                if (pixelBuffer[i + 3] === 0) continue; // Skip transparent pixels
+
+                // Convert RGB color back to triangle ID
+                const r = pixelBuffer[i];
+                const g = pixelBuffer[i + 1];
+                const b = pixelBuffer[i + 2];
+
+                const triangleId = r + (g * 256) + (b * 65536);
+
+                if (triangleId < triangleCount) {
+                    pixelCounts[triangleId]++;
+                }
+            }
+
+            return pixelCounts;
+        }
+
+        // Function to toggle the material
+        function toggleMaterial() {
+            if (!mesh) return;
+
+            // Rotate through shader modes (0 -> 1 -> 2 -> 0)
+            shaderMode = (shaderMode + 1) % 3;
+
+            if (shaderMode === 0) {
+                // Clean up any back face meshes if switching to original material
+                if (mesh.userData.backFaceMesh) {
+                    scene.remove(mesh.userData.backFaceMesh);
+                    mesh.userData.backFaceMesh = null;
+                }
+
+                // Switch to original material (similar to existing code)
+                if (originalMaterials.has(mesh)) {
+                    const originalMaterial = originalMaterials.get(mesh);
+
+                    // Log information about the original material
+                    console.log("Original material type:", originalMaterial.type);
+                    console.log("Has map texture:", !!originalMaterial.map);
+
+                    // Create a new MeshBasicMaterial that always shows the texture regardless of lighting
+                    let brightMaterial;
+
+                    if (originalMaterial.map) {
+                        brightMaterial = new THREE.MeshBasicMaterial({
+                            map: originalMaterial.map,
+                            color: 0xffffff, // Full white to show texture at full brightness
+                            side: originalMaterial.side || THREE.FrontSide
+                        });
+                        console.log("Using texture from original material");
+                    } else if (originalMaterial.color) {
+                        brightMaterial = new THREE.MeshBasicMaterial({
+                            color: originalMaterial.color,
+                            side: originalMaterial.side || THREE.FrontSide
+                        });
+                        console.log("Using color from original material:", originalMaterial.color);
+                    } else {
+                        brightMaterial = new THREE.MeshBasicMaterial({
+                            color: 0xdddddd,
+                            side: originalMaterial.side || THREE.FrontSide
+                        });
+                        console.log("Using default light grey color");
+                    }
+
+                    // Copy other relevant properties
+                    if (originalMaterial.transparent) {
+                        brightMaterial.transparent = true;
+                        brightMaterial.opacity = originalMaterial.opacity;
+                    }
+
+                    // Apply the new material
+                    mesh.material = brightMaterial;
+
+                    // Reset the render order to default
+                    mesh.renderOrder = 0;
+
+                    // Add ambient light to the scene to ensure everything is visible
+                    if (!scene.getObjectByName("ambientLight")) {
+                        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+                        ambientLight.name = "ambientLight";
+                        scene.add(ambientLight);
+                        console.log("Added ambient light to scene");
+                    }
+                } else {
+                    console.warn("No original material found for mesh");
+                    mesh.material = new THREE.MeshBasicMaterial({ color: 0xdddddd });
+                }
+
+                console.log('Switched to original material');
+            } else {
+                // Store original material if not already stored
+                if (!originalMaterials.has(mesh)) {
+                    originalMaterials.set(mesh, mesh.material.clone());
+                }
+
+                const geometry = mesh.geometry;
+                const triangleCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+
+                // Only initialize triangle attributes and areas if this is the first time
+                // This preserves areas across shader activations
+                const needsTriangleSetup = !geometry.attributes.triangleV1 || !geometry.attributes.triangleV2 || !geometry.attributes.triangleV3;
+
+                // Store current FOV - this will be used to detect significant changes
+                if (!mesh.userData.initialFOV) {
+                    mesh.userData.initialFOV = camera.fov;
+                }
+
+                // Add additional attributes to store triangle data (but only once for this model)
+                if (needsTriangleSetup) {
+                    console.log("Creating triangle vertex attributes (first time initialization)");
+                    const positions = geometry.attributes.position.array;
+                    const indices = geometry.index ? geometry.index.array : null;
+                    const vertexCount = geometry.attributes.position.count;
+
+                    // Create arrays for the triangle vertices
+                    const triangleV1 = new Float32Array(vertexCount * 3);
+                    const triangleV2 = new Float32Array(vertexCount * 3);
+                    const triangleV3 = new Float32Array(vertexCount * 3);
+
+                    // For each triangle, store its vertices in attributes
+                    for (let i = 0; i < triangleCount; i++) {
+                        // Get vertex indices for this triangle
+                        let v1Idx, v2Idx, v3Idx;
+                        if (indices) {
+                            v1Idx = indices[i * 3];
+                            v2Idx = indices[i * 3 + 1];
+                            v3Idx = indices[i * 3 + 2];
+                        } else {
+                            v1Idx = i * 3;
+                            v2Idx = i * 3 + 1;
+                            v3Idx = i * 3 + 2;
+                        }
+
+                        // Get vertex positions from the position buffer
+                        const v1 = {
+                            x: positions[v1Idx * 3],
+                            y: positions[v1Idx * 3 + 1],
+                            z: positions[v1Idx * 3 + 2]
+                        };
+                        const v2 = {
+                            x: positions[v2Idx * 3],
+                            y: positions[v2Idx * 3 + 1],
+                            z: positions[v2Idx * 3 + 2]
+                        };
+                        const v3 = {
+                            x: positions[v3Idx * 3],
+                            y: positions[v3Idx * 3 + 1],
+                            z: positions[v3Idx * 3 + 2]
+                        };
+
+                        // For each vertex of this triangle, store all three vertices
+                        // This ensures each vertex shader invocation has access to the full triangle
+                        for (let j = 0; j < 3; j++) {
+                            let vIdx;
+                            if (indices) {
+                                vIdx = indices[i * 3 + j];
+                            } else {
+                                vIdx = i * 3 + j;
+                            }
+
+                            // Store all three triangle vertices at this vertex's position in the buffers
+                            triangleV1[vIdx * 3] = v1.x;
+                            triangleV1[vIdx * 3 + 1] = v1.y;
+                            triangleV1[vIdx * 3 + 2] = v1.z;
+
+                            triangleV2[vIdx * 3] = v2.x;
+                            triangleV2[vIdx * 3 + 1] = v2.y;
+                            triangleV2[vIdx * 3 + 2] = v2.z;
+
+                            triangleV3[vIdx * 3] = v3.x;
+                            triangleV3[vIdx * 3 + 1] = v3.y;
+                            triangleV3[vIdx * 3 + 2] = v3.z;
+                        }
+                    }
+
+                    // Add the triangle vertex attributes to the geometry
+                    geometry.setAttribute('triangleV1', new THREE.BufferAttribute(triangleV1, 3));
+                    geometry.setAttribute('triangleV2', new THREE.BufferAttribute(triangleV2, 3));
+                    geometry.setAttribute('triangleV3', new THREE.BufferAttribute(triangleV3, 3));
+
+                    // Create initialArea attribute, but only if it doesn't exist
+                    if (!geometry.attributes.initialArea) {
+                        const vertexCount = geometry.attributes.position.count;
+                        const initialAreaArray = new Float32Array(vertexCount);
+                        geometry.setAttribute('initialArea', new THREE.BufferAttribute(initialAreaArray, 1));
+                        console.log("Created initialArea attribute for first-time calculation");
+
+                        // Reset the flag to indicate we need to calculate initial areas
+                        mesh.userData.initialAreasCalculated = false;
+                        hasCalculatedInitialCounts = false;
+                    }
+                } else {
+                    console.log("Using existing triangle attributes and initial areas");
+                }
+
+                // Choose between color or transparency shader based on shaderMode
+                if (shaderMode === 1) {
+                    // Use the existing color visualization shader
+                    createColorVisualizationShader(mesh);
+                    console.log('Switched to color visualization shader');
+                } else { // shaderMode === 2
+                    // Use new transparency visualization shader
+                    createTransparencyVisualizationShader(mesh);
+                    console.log('Switched to transparency visualization shader');
+                }
+            }
+        }
+
+        // Update the color visualization shader with a simpler direct ratio mapping
+        function createColorVisualizationShader(meshObject) {
+            console.log("Creating color visualization shader with current camera position:", camera.position.toArray());
+
+            // Use existing camera state values if they've been calculated before
+            // otherwise set them based on the current camera
+            const initialCameraPos = meshObject.userData.initialCameraPosition || camera.position.clone();
+            const initialCameraDirection = meshObject.userData.initialCameraDirection ||
+                new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+            const initialCameraFOV = meshObject.userData.initialFOV || camera.fov;
+
+            console.log("Using camera values from initial calculation:");
+            console.log("- Initial camera position:", initialCameraPos.toArray());
+            console.log("- Initial camera direction:", initialCameraDirection.toArray());
+            console.log("- Initial camera FOV:", initialCameraFOV);
+
+            const areaShader = new THREE.ShaderMaterial({
+                uniforms: {
+                    // Use isFirstFrame=0 if areas are already calculated, otherwise 1
+                    isFirstFrame: { value: meshObject.userData.initialAreasCalculated ? 0.0 : 1.0 },
+                    initialCameraPosition: { value: initialCameraPos },
+                    initialCameraDirection: { value: initialCameraDirection },
+                    initialCameraFOV: { value: initialCameraFOV },
+                    sigmoidSteepness: { value: 5.0 }
+                },
+                vertexShader: `
+                    in float triangleId;
+                    in float initialArea;
+                    in vec3 triangleV1;
+                    in vec3 triangleV2;
+                    in vec3 triangleV3;
+                    
+                    flat out float vTriangleId;
+                    flat out float vInitialArea;
+                    out vec4 vScreenPosition;
+                    flat out vec4 vScreenV1;
+                    flat out vec4 vScreenV2;
+                    flat out vec4 vScreenV3;
+                    out vec3 vWorldPosition;
+                    flat out vec3 vWorldV1;
+                    flat out vec3 vWorldV2;
+                    flat out vec3 vWorldV3;
+                    
+                    void main() {
+                        vTriangleId = triangleId;
+                        vInitialArea = initialArea;
+                        
+                        // Calculate clip-space positions for all three vertices of the triangle
+                        vec4 clipV1 = projectionMatrix * modelViewMatrix * vec4(triangleV1, 1.0);
+                        vec4 clipV2 = projectionMatrix * modelViewMatrix * vec4(triangleV2, 1.0);
+                        vec4 clipV3 = projectionMatrix * modelViewMatrix * vec4(triangleV3, 1.0);
+                        
+                        // Store the clip-space positions to pass to the fragment shader
+                        vScreenV1 = clipV1;
+                        vScreenV2 = clipV2;
+                        vScreenV3 = clipV3;
+                        
+                        // Store world space positions for distance calculations
+                        vWorldV1 = (modelMatrix * vec4(triangleV1, 1.0)).xyz;
+                        vWorldV2 = (modelMatrix * vec4(triangleV2, 1.0)).xyz;
+                        vWorldV3 = (modelMatrix * vec4(triangleV3, 1.0)).xyz;
+                        
+                        // Actual vertex position for this vertex
+                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPos.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * worldPos;
+                        vScreenPosition = gl_Position;
+                    }
+                `,
+                fragmentShader: `
+                    uniform float isFirstFrame;
+                    uniform float sigmoidSteepness;
+                    uniform vec3 initialCameraPosition;
+                    uniform vec3 initialCameraDirection;
+                    uniform float initialCameraFOV;
+                    
+                    flat in float vTriangleId;
+                    flat in float vInitialArea;
+                    in vec4 vScreenPosition;
+                    flat in vec4 vScreenV1;
+                    flat in vec4 vScreenV2;
+                    flat in vec4 vScreenV3;
+                    in vec3 vWorldPosition;
+                    flat in vec3 vWorldV1;
+                    flat in vec3 vWorldV2;
+                    flat in vec3 vWorldV3;
+                    
+                    out vec4 fragColor;
+                    
+                    // Function to calculate screen-space coordinates
+                    vec2 getScreenCoords(vec4 clipSpace) {
+                        vec3 ndc = clipSpace.xyz / clipSpace.w;
+                        return ndc.xy * 0.5 + 0.5;
+                    }
+                    
+                    // Function to calculate the screen-space area of a triangle
+                    float calculateScreenArea(vec4 p1, vec4 p2, vec4 p3) {
+                        // Convert to screen space coordinates
+                        vec2 s1 = getScreenCoords(p1);
+                        vec2 s2 = getScreenCoords(p2);
+                        vec2 s3 = getScreenCoords(p3);
+                        
+                        // Calculate area using cross product
+                        vec2 e1 = s2 - s1;
+                        vec2 e2 = s3 - s1;
+                        return abs(e1.x * e2.y - e1.y * e2.x) * 0.5;
+                    }
+                    
+                    // Calculate triangle normal
+                    vec3 calculateNormal(vec3 v1, vec3 v2, vec3 v3) {
+                        vec3 edge1 = v2 - v1;
+                        vec3 edge2 = v3 - v1;
+                        return normalize(cross(edge1, edge2));
+                    }
+                    
+                    // Calculate dot product between view direction and normal
+                    float calculateVisibilityFactor(vec3 viewDirection, vec3 normal) {
+                        return abs(dot(normalize(viewDirection), normal));
+                    }
+                    
+                    void main() {
+                        // Get current camera position from the view matrix
+                        mat4 viewMatrixInverse = inverse(viewMatrix);
+                        vec3 cameraPosition = viewMatrixInverse[3].xyz;
+                        
+                        // Calculate triangle center in world space
+                        vec3 triangleCenter = (vWorldV1 + vWorldV2 + vWorldV3) / 3.0;
+                        
+                        // Calculate triangle normal
+                        vec3 normal = calculateNormal(vWorldV1, vWorldV2, vWorldV3);
+                        
+                        // Debug colors based on triangle ID
+                        vec3 rainbowColor = vec3(
+                            0.5 + 0.5 * sin(vTriangleId * 0.1),
+                            0.5 + 0.5 * sin(vTriangleId * 0.1 + 2.0),
+                            0.5 + 0.5 * sin(vTriangleId * 0.1 + 4.0)
+                        );
+                        
+                        if (isFirstFrame > 0.5) {
+                            // First frame - just show the triangle IDs
+                            fragColor = vec4(rainbowColor, 1.0);
+                            return;
+                        }
+                        
+                        // Calculate view direction from camera to triangle for current view
+                        vec3 currentViewDirection = normalize(triangleCenter - cameraPosition);
+                        
+                        // Calculate view direction from initial camera to triangle
+                        vec3 initialViewDirection = normalize(triangleCenter - initialCameraPosition);
+                        
+                        // Calculate visibility factor for current and initial views 
+                        // This represents how directly the camera is looking at the triangle
+                        float currentVisibility = calculateVisibilityFactor(currentViewDirection, normal);
+                        float initialVisibility = calculateVisibilityFactor(initialViewDirection, normal);
+                        
+                        // Calculate ratio of visibilities
+                        // NOW: Higher ratio = more inpainting needed (current view is MORE visible than initial)
+                        float visibilityRatio = currentVisibility / max(initialVisibility, 0.001);
+                        
+                        // Apply transformation for better visualization
+                        // Highlight areas that need inpainting (where visibility INCREASED significantly)
+                        float inpaintingNeed;
+                        
+                        if (visibilityRatio > 1.0) {
+                            // Current visibility is higher than initial - needs inpainting
+                            // Map ratio from 1.0-2.0 to 0.0-1.0
+                            inpaintingNeed = min((visibilityRatio - 1.0), 1.0);
+                        } else {
+                            // Current visibility is same or lower than initial - no inpainting needed
+                            inpaintingNeed = 0.0;
+                        }
+                        
+                        // Create color gradient: 
+                        // Black = no inpainting needed (same or worse visibility than original)
+                        // White = inpainting needed (better visibility than in original view)
+                        vec3 color = vec3(inpaintingNeed);
+                        
+                        // Output the final color
+                        fragColor = vec4(color, 1.0);
+                    }
+                `,
+                glslVersion: THREE.GLSL3
+            });
+
+            // Apply the shader
+            meshObject.material = areaShader;
+
+            // If we haven't calculated the initial areas yet, we need to store the 
+            // initial camera state and mark the flag appropriately
+            if (!meshObject.userData.initialAreasCalculated) {
+                // Use a setTimeout to ensure the camera and shader are fully set before initializing
+                setTimeout(() => {
+                    // Force a render to get the initial state
+                    renderer.render(scene, camera);
+
+                    // Now switch to active mode (no longer first frame)
+                    console.log("Initialization render complete, switching to comparison mode");
+                    areaShader.uniforms.isFirstFrame.value = 0.0;
+
+                    // Store current camera state correctly
+                    meshObject.userData.initialCameraPosition = camera.position.clone();
+                    meshObject.userData.initialCameraDirection = new THREE.Vector3(0, 0, -1)
+                        .applyQuaternion(camera.quaternion).normalize();
+                    meshObject.userData.initialCameraRotation = camera.rotation.clone();
+                    meshObject.userData.initialFOV = camera.fov;
+
+                    // Update uniforms with stored values
+                    areaShader.uniforms.initialCameraPosition.value = meshObject.userData.initialCameraPosition;
+                    areaShader.uniforms.initialCameraDirection.value = meshObject.userData.initialCameraDirection;
+                    areaShader.uniforms.initialCameraFOV.value = meshObject.userData.initialFOV;
+
+                    // Log the updated values for debugging
+                    console.log("After init: Camera position:", meshObject.userData.initialCameraPosition.toArray());
+                    console.log("After init: Camera direction:", meshObject.userData.initialCameraDirection.toArray());
+                    console.log("After init: Camera FOV:", meshObject.userData.initialFOV);
+
+                    // Mark as initialized
+                    meshObject.userData.initialAreasCalculated = true;
+
+                    // Force a second render with the updated values
+                    renderer.render(scene, camera);
+
+                    console.log("Switched to angle-based visibility comparison mode");
+                }, 100); // Small delay to ensure everything is ready
+            } else {
+                console.log("Using existing initial areas, skipping initialization step");
+            }
+        }
+
+        // Update the transparency visualization shader with a simpler direct ratio mapping
+        function createTransparencyVisualizationShader(meshObject) {
+            // Check if the original material has a texture map
+            const originalMaterial = originalMaterials.get(meshObject);
+            const hasTexture = originalMaterial && originalMaterial.map;
+
+            console.log("Creating transparency shader with texture:", hasTexture);
+            console.log("Creating transparency shader with current camera position:", camera.position.toArray());
+
+            // Use existing camera state values if they've been calculated before
+            // otherwise set them based on the current camera
+            const initialCameraPos = meshObject.userData.initialCameraPosition || camera.position.clone();
+            const initialCameraDirection = meshObject.userData.initialCameraDirection ||
+                new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+            const initialCameraFOV = meshObject.userData.initialFOV || camera.fov;
+
+            console.log("Using camera values from initial calculation:");
+            console.log("- Initial camera position:", initialCameraPos.toArray());
+            console.log("- Initial camera direction:", initialCameraDirection.toArray());
+            console.log("- Initial camera FOV:", initialCameraFOV);
+
+            // Create shader uniforms with texture if available
+            const uniforms = {
+                // Use isFirstFrame=0 if areas are already calculated, otherwise 1
+                isFirstFrame: { value: meshObject.userData.initialAreasCalculated ? 0.0 : 1.0 },
+                baseColor: { value: new THREE.Color(0xffffff) },
+                useTexture: { value: hasTexture ? 1.0 : 0.0 },
+                initialCameraPosition: { value: initialCameraPos },
+                initialCameraDirection: { value: initialCameraDirection },
+                initialCameraFOV: { value: initialCameraFOV }
+            };
+
+            // Add texture to uniforms if available
+            if (hasTexture) {
+                uniforms.textureSampler = { value: originalMaterial.map };
+                console.log("Assigned texture to shader:", originalMaterial.map);
+            }
+
+            const transparencyShader = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: `
+                    in float triangleId;
+                    in float initialArea;
+                    in vec3 triangleV1;
+                    in vec3 triangleV2;
+                    in vec3 triangleV3;
+                    
+                    flat out float vTriangleId;
+                    flat out float vInitialArea;
+                    out vec4 vScreenPosition;
+                    flat out vec4 vScreenV1;
+                    flat out vec4 vScreenV2;
+                    flat out vec4 vScreenV3;
+                    out vec2 vUv;
+                    out vec3 vWorldPosition;
+                    flat out vec3 vWorldV1;
+                    flat out vec3 vWorldV2;
+                    flat out vec3 vWorldV3;
+                    
+                    void main() {
+                        vTriangleId = triangleId;
+                        vInitialArea = initialArea;
+                        vUv = uv;
+                        
+                        // Calculate clip-space positions for all three vertices of the triangle
+                        vec4 clipV1 = projectionMatrix * modelViewMatrix * vec4(triangleV1, 1.0);
+                        vec4 clipV2 = projectionMatrix * modelViewMatrix * vec4(triangleV2, 1.0);
+                        vec4 clipV3 = projectionMatrix * modelViewMatrix * vec4(triangleV3, 1.0);
+                        
+                        // Store the clip-space positions to pass to the fragment shader
+                        vScreenV1 = clipV1;
+                        vScreenV2 = clipV2;
+                        vScreenV3 = clipV3;
+                        
+                        // Store world space positions for distance calculations
+                        vWorldV1 = (modelMatrix * vec4(triangleV1, 1.0)).xyz;
+                        vWorldV2 = (modelMatrix * vec4(triangleV2, 1.0)).xyz;
+                        vWorldV3 = (modelMatrix * vec4(triangleV3, 1.0)).xyz;
+                        
+                        // Actual vertex position for this vertex
+                        vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPos.xyz;
+                        gl_Position = projectionMatrix * viewMatrix * worldPos;
+                        vScreenPosition = gl_Position;
+                    }
+                `,
+                fragmentShader: `
+                    uniform float isFirstFrame;
+                    uniform vec3 baseColor;
+                    uniform float useTexture;
+                    uniform sampler2D textureSampler;
+                    uniform vec3 initialCameraPosition;
+                    uniform vec3 initialCameraDirection;
+                    uniform float initialCameraFOV;
+                    
+                    flat in float vTriangleId;
+                    flat in float vInitialArea;
+                    in vec4 vScreenPosition;
+                    flat in vec4 vScreenV1;
+                    flat in vec4 vScreenV2;
+                    flat in vec4 vScreenV3;
+                    in vec2 vUv;
+                    in vec3 vWorldPosition;
+                    flat in vec3 vWorldV1;
+                    flat in vec3 vWorldV2;
+                    flat in vec3 vWorldV3;
+                    
+                    out vec4 fragColor;
+                    
+                    // Function to calculate screen-space coordinates
+                    vec2 getScreenCoords(vec4 clipSpace) {
+                        vec3 ndc = clipSpace.xyz / clipSpace.w;
+                        return ndc.xy * 0.5 + 0.5;
+                    }
+                    
+                    // Function to calculate the screen-space area of a triangle
+                    float calculateScreenArea(vec4 p1, vec4 p2, vec4 p3) {
+                        // Convert to screen space coordinates
+                        vec2 s1 = getScreenCoords(p1);
+                        vec2 s2 = getScreenCoords(p2);
+                        vec2 s3 = getScreenCoords(p3);
+                        
+                        // Calculate area using cross product
+                        vec2 e1 = s2 - s1;
+                        vec2 e2 = s3 - s1;
+                        return abs(e1.x * e2.y - e1.y * e2.x) * 0.5;
+                    }
+                    
+                    // Calculate triangle normal
+                    vec3 calculateNormal(vec3 v1, vec3 v2, vec3 v3) {
+                        vec3 edge1 = v2 - v1;
+                        vec3 edge2 = v3 - v1;
+                        return normalize(cross(edge1, edge2));
+                    }
+                    
+                    // Calculate dot product between view direction and normal
+                    float calculateVisibilityFactor(vec3 viewDirection, vec3 normal) {
+                        return abs(dot(normalize(viewDirection), normal));
+                    }
+                    
+                    void main() {
+                        // Get current camera position from the view matrix
+                        mat4 viewMatrixInverse = inverse(viewMatrix);
+                        vec3 cameraPosition = viewMatrixInverse[3].xyz;
+                        
+                        // Get the color - either from texture or use the base color
+                        vec3 color;
+                        if (useTexture > 0.5) {
+                            color = texture(textureSampler, vUv).rgb;
+                        } else {
+                            color = baseColor;
+                        }
+                        
+                        if (isFirstFrame > 0.5) {
+                            // First frame - just show the color without transparency
+                            fragColor = vec4(color, 1.0);
+                            return;
+                        }
+                        
+                        // Calculate triangle center in world space
+                        vec3 triangleCenter = (vWorldV1 + vWorldV2 + vWorldV3) / 3.0;
+                        
+                        // Calculate triangle normal
+                        vec3 normal = calculateNormal(vWorldV1, vWorldV2, vWorldV3);
+                        
+                        // Calculate view direction from camera to triangle for current view
+                        vec3 currentViewDirection = normalize(triangleCenter - cameraPosition);
+                        
+                        // Calculate view direction from initial camera to triangle
+                        vec3 initialViewDirection = normalize(triangleCenter - initialCameraPosition);
+                        
+                        // Calculate visibility factor for current and initial views 
+                        // This represents how directly the camera is looking at the triangle
+                        float currentVisibility = calculateVisibilityFactor(currentViewDirection, normal);
+                        float initialVisibility = calculateVisibilityFactor(initialViewDirection, normal);
+                        
+                        // Calculate ratio of visibilities
+                        // NOW: Higher ratio = more inpainting needed (current view is MORE visible than initial)
+                        float visibilityRatio = currentVisibility / max(initialVisibility, 0.001);
+                        
+                        // Calculate opacity based on ratio:
+                        // IMPROVED LOGIC:
+                        // - ratio > 1.0: fully transparent proportional to how much inpainting needed (opacity 0.0-0.2)
+                        // - ratio <= 1.0: fully opaque to slightly transparent based on how close to needing inpainting (opacity 0.8-1.0)
+                        float opacity;
+                        
+                        if (visibilityRatio > 1.0) {
+                            // Needs inpainting (better visibility than initial)
+                            // Map from 1.0-2.0+ range to 0.0-0.2 opacity range (almost to fully transparent)
+                            // Ensure that higher ratios (more inpainting) approach complete transparency
+                            float inpaintLevel = min((visibilityRatio - 1.0), 1.0);
+                            opacity = 0.2 * (1.0 - inpaintLevel); // More inpainting = less opacity
+                        } else {
+                            // No inpainting needed (same or worse visibility)
+                            // Map from 1.0-0.0 range to 1.0-0.8 opacity range
+                            // Even areas that don't need inpainting should be slightly distinguishable from the original
+                            opacity = 0.8 + (visibilityRatio * 0.2);
+                        }
+                        
+                        // Ensure opacity is in valid range
+                        opacity = clamp(opacity, 0.0, 1.0);
+                        
+                        // Output final color with calculated opacity
+                        fragColor = vec4(color, opacity);
+                    }
+                `,
+                transparent: true,
+                depthWrite: true,  // Enable depth writing for better sorting
+                depthTest: true,
+                side: THREE.FrontSide,  // Only render front faces for clearer depth
+                blending: THREE.CustomBlending,  // Use custom blending for better transparency
+                blendSrc: THREE.SrcAlphaFactor,
+                blendDst: THREE.OneMinusSrcAlphaFactor,
+                blendEquation: THREE.AddEquation,
+                glslVersion: THREE.GLSL3
+            });
+
+            // Apply the shader
+            meshObject.material = transparencyShader;
+
+            // Enable transparency sorting on the mesh
+            meshObject.renderOrder = 1;  // Render after opaque objects
+
+            // Create a split mesh for handling back faces with custom depth
+            createBackFaceMesh(meshObject);
+
+            // If we haven't calculated the initial areas yet, we need to store the 
+            // initial camera state and mark the flag appropriately
+            if (!meshObject.userData.initialAreasCalculated) {
+                // Use a setTimeout to ensure the camera and shader are fully set before initializing
+                setTimeout(() => {
+                    // Force a render to get the initial state
+                    renderer.render(scene, camera);
+
+                    // Now switch to active mode (no longer first frame)
+                    console.log("Transparency initialization render complete, switching to comparison mode");
+                    transparencyShader.uniforms.isFirstFrame.value = 0.0;
+
+                    // Store current camera state correctly
+                    meshObject.userData.initialCameraPosition = camera.position.clone();
+                    meshObject.userData.initialCameraDirection = new THREE.Vector3(0, 0, -1)
+                        .applyQuaternion(camera.quaternion).normalize();
+                    meshObject.userData.initialCameraRotation = camera.rotation.clone();
+                    meshObject.userData.initialFOV = camera.fov;
+
+                    // Update uniforms with stored values
+                    transparencyShader.uniforms.initialCameraPosition.value = meshObject.userData.initialCameraPosition;
+                    transparencyShader.uniforms.initialCameraDirection.value = meshObject.userData.initialCameraDirection;
+                    transparencyShader.uniforms.initialCameraFOV.value = meshObject.userData.initialFOV;
+
+                    // Log the updated values for debugging
+                    console.log("After transparency init: Camera position:", meshObject.userData.initialCameraPosition.toArray());
+                    console.log("After transparency init: Camera direction:", meshObject.userData.initialCameraDirection.toArray());
+                    console.log("After transparency init: Camera FOV:", meshObject.userData.initialFOV);
+
+                    // Mark as initialized
+                    meshObject.userData.initialAreasCalculated = true;
+
+                    // Force a second render with the updated values
+                    renderer.render(scene, camera);
+
+                    console.log("Switched to angle-based transparency comparison mode");
+                }, 100); // Small delay to ensure everything is ready
+            } else {
+                console.log("Using existing initial areas, skipping transparency initialization step");
+            }
+        }
+
+        // Function to create a back-face rendering mesh for better transparency
+        function createBackFaceMesh(meshObject) {
+            // If there's already a back face mesh, remove it
+            if (meshObject.userData.backFaceMesh) {
+                scene.remove(meshObject.userData.backFaceMesh);
+                meshObject.userData.backFaceMesh = null;
+            }
+
+            // Create a clone of the mesh for back faces
+            const geometry = meshObject.geometry.clone();
+            const uniforms = { ...meshObject.material.uniforms };
+
+            // Copy all triangle attributes to the cloned geometry
+            if (meshObject.geometry.attributes.triangleV1) {
+                geometry.setAttribute('triangleV1', meshObject.geometry.attributes.triangleV1.clone());
+                geometry.setAttribute('triangleV2', meshObject.geometry.attributes.triangleV2.clone());
+                geometry.setAttribute('triangleV3', meshObject.geometry.attributes.triangleV3.clone());
+
+                if (meshObject.geometry.attributes.initialArea) {
+                    geometry.setAttribute('initialArea', meshObject.geometry.attributes.initialArea.clone());
+                }
+            }
+
+            // Create a slightly modified shader for back faces
+            const backFaceShader = new THREE.ShaderMaterial({
+                uniforms: uniforms,
+                vertexShader: meshObject.material.vertexShader,
+                fragmentShader: meshObject.material.fragmentShader,
+                transparent: true,
+                depthWrite: false,  // Don't write to depth buffer for back faces
+                depthTest: true,
+                side: THREE.BackSide,  // Only render back faces
+                blending: THREE.CustomBlending,
+                blendSrc: THREE.SrcAlphaFactor,
+                blendDst: THREE.OneMinusSrcAlphaFactor,
+                blendEquation: THREE.AddEquation,
+                glslVersion: THREE.GLSL3,
+                polygonOffset: true,    // Use polygon offset to reduce z-fighting
+                polygonOffsetFactor: 1, // Small offset factor
+                polygonOffsetUnits: 1   // Small offset units
+            });
+
+            // Create the back face mesh
+            const backFaceMesh = new THREE.Mesh(geometry, backFaceShader);
+
+            // Copy transformation from the original mesh
+            backFaceMesh.position.copy(meshObject.position);
+            backFaceMesh.rotation.copy(meshObject.rotation);
+            backFaceMesh.scale.copy(meshObject.scale);
+            backFaceMesh.matrix.copy(meshObject.matrix);
+            backFaceMesh.matrixWorld.copy(meshObject.matrixWorld);
+            backFaceMesh.matrixAutoUpdate = meshObject.matrixAutoUpdate;
+            backFaceMesh.renderOrder = 0;  // Render before the front faces
+
+            // Use same UUID for easy identification
+            backFaceMesh.uuid = meshObject.uuid + "_backface";
+
+            // Add it to the scene
+            scene.add(backFaceMesh);
+
+            // Store reference for cleanup
+            meshObject.userData.backFaceMesh = backFaceMesh;
+
+            console.log("Created back face mesh for better transparency");
+
+            // Sync the back face mesh with the front face mesh on every frame
+            function syncMeshes() {
+                if (meshObject.userData.backFaceMesh && meshObject.parent) {
+                    // Ensure the back face mesh is synced with the front face mesh
+                    backFaceMesh.position.copy(meshObject.position);
+                    backFaceMesh.rotation.copy(meshObject.rotation);
+                    backFaceMesh.scale.copy(meshObject.scale);
+                    backFaceMesh.visible = meshObject.visible;
+
+                    // Request the next animation frame for continuous sync
+                    requestAnimationFrame(syncMeshes);
+                }
+            }
+
+            // Start the sync process
+            syncMeshes();
+        }
+
+        // Create a capture button
+        const captureButton = document.createElement('button');
+        captureButton.textContent = 'Capture Both Views';
+        captureButton.style.position = 'absolute';
+        captureButton.style.top = '10px'; // Position at the top where toggle button was
+        captureButton.style.right = '10px';
+        captureButton.style.padding = '8px 16px';
+        captureButton.style.zIndex = '100';
+        captureButton.addEventListener('click', captureBothViews);
+        document.body.appendChild(captureButton);
+
+        // Create buttons to cycle between models
+        const prevModelButton = document.createElement('button');
+        prevModelButton.textContent = '< Prev Model';
+        prevModelButton.style.position = 'absolute';
+        prevModelButton.style.bottom = '10px';
+        prevModelButton.style.left = '10px';
+        prevModelButton.style.padding = '8px 16px';
+        prevModelButton.style.zIndex = '100';
+        prevModelButton.addEventListener('click', loadPreviousModel);
+        document.body.appendChild(prevModelButton);
+
+        const nextModelButton = document.createElement('button');
+        nextModelButton.textContent = 'Next Model >';
+        nextModelButton.style.position = 'absolute';
+        nextModelButton.style.bottom = '10px';
+        nextModelButton.style.left = '120px';  // Position to the right of previous button
+        nextModelButton.style.padding = '8px 16px';
+        nextModelButton.style.zIndex = '100';
+        nextModelButton.addEventListener('click', loadNextModel);
+        document.body.appendChild(nextModelButton);
+
+        // Display current model name
+        const modelNameDisplay = document.createElement('div');
+        modelNameDisplay.style.position = 'absolute';
+        modelNameDisplay.style.bottom = '50px';
+        modelNameDisplay.style.left = '10px';
+        modelNameDisplay.style.color = 'white';
+        modelNameDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        modelNameDisplay.style.padding = '5px 10px';
+        modelNameDisplay.style.borderRadius = '5px';
+        modelNameDisplay.style.zIndex = '100';
+        document.body.appendChild(modelNameDisplay);
+
+        // Add help text for hiding UI controls
+        const helpText = document.createElement('div');
+        helpText.textContent = 'Press "h" to hide/show UI controls';
+        helpText.style.position = 'absolute';
+        helpText.style.top = '10px';
+        helpText.style.left = '10px';
+        helpText.style.color = 'white';
+        helpText.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        helpText.style.padding = '5px 10px';
+        helpText.style.borderRadius = '5px';
+        helpText.style.zIndex = '100';
+        document.body.appendChild(helpText);
+
+        // Add keyboard shortcuts for cycling through models
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'ArrowRight') {
+                loadNextModel();
+            } else if (event.key === 'ArrowLeft') {
+                loadPreviousModel();
+            } else if (event.key.toLowerCase() === 'c') {
+                captureBothViews();
+            } else if (event.key.toLowerCase() === 'h') {
+                toggleControlsVisibility();
+            }
+        });
+
+        // Function to capture both shader views
+        async function captureBothViews() {
+            if (!mesh) {
+                console.warn('No model loaded to capture');
+                return;
+            }
+
+            // Remember current shader state
+            const originalShaderMode = shaderMode;
+
+            // Helper function to capture a specific view with a given mode
+            async function captureSpecificView(targetMode, modeName) {
+                // Switch to target mode if not already on it
+                let modeChangeNeeded = (shaderMode !== targetMode);
+                if (modeChangeNeeded) {
+                    // Calculate how many toggles needed to reach targetMode
+                    let togglesNeeded;
+                    if (targetMode > shaderMode) {
+                        togglesNeeded = targetMode - shaderMode;
+                    } else {
+                        // Need to cycle through all modes to get back to target
+                        togglesNeeded = (3 - shaderMode) + targetMode;
+                    }
+
+                    // Apply the toggles
+                    for (let i = 0; i < togglesNeeded; i++) {
+                        toggleMaterial();
+                    }
+
+                    console.log(`Switched to ${modeName} mode (${targetMode})`);
+                }
+
+                return new Promise(resolve => {
+                    // Allow time for the shader to initialize properly, especially for custom shaders
+                    setTimeout(() => {
+                        // Force a render with the current shader
+                        renderer.render(scene, camera);
+
+                        // Allow additional time for the shader to stabilize
+                        setTimeout(() => {
+                            // Force another render to ensure everything is updated
+                            renderer.render(scene, camera);
+
+                            // Convert the canvas to a data URL
+                            const dataUrl = renderer.domElement.toDataURL('image/png');
+
+                            // Create temporary link to download the image
+                            const link = document.createElement('a');
+                            link.href = dataUrl;
+                            link.download = `model_${modeName}.png`;
+
+                            // Trigger download
+                            link.click();
+
+                            // Give enough time to complete the capture before continuing
+                            setTimeout(resolve, 300);
+                        }, 100);
+                    }, modeChangeNeeded ? 300 : 100); // Wait longer if we had to change modes
+                });
+            }
+
+            try {
+                // First, capture the original material view (mode 0)
+                console.log("Capturing original material view");
+                await captureSpecificView(0, "original");
+
+                // Then, capture the colored inpainting mask (mode 1)
+                console.log("Capturing colored inpainting mask");
+                await captureSpecificView(1, "inpaint_mask");
+
+                // Restore the original shader mode
+                if (shaderMode !== originalShaderMode) {
+                    // Calculate toggles needed to return to original mode
+                    let togglesNeeded;
+                    if (originalShaderMode > shaderMode) {
+                        togglesNeeded = originalShaderMode - shaderMode;
+                    } else {
+                        togglesNeeded = (3 - shaderMode) + originalShaderMode;
+                    }
+
+                    // Apply the toggles
+                    for (let i = 0; i < togglesNeeded; i++) {
+                        toggleMaterial();
+                    }
+
+                    console.log("Restored original shader mode:", originalShaderMode);
+
+                    // Ensure render with original state
+                    renderer.render(scene, camera);
+                }
+
+                console.log('Both views captured successfully');
+            } catch (error) {
+                console.error('Error capturing views:', error);
+            }
+        }
+
+        // Update the animation loop to handle shader toggling only on specific cycles
+        function animate() {
+            requestAnimationFrame(animate);
+            frameCount++;
+
+            // Handle camera animation
+            handleCameraAnimation();
+
+            // Existing shader update code - only run when custom shader is active
+            if (mesh && shaderMode !== 0 && frameCount % updateInterval === 0) {
+                try {
+                    // Check if FOV has changed significantly and force area recalculation if needed
+                    if (mesh.userData.initialFOV && Math.abs(mesh.userData.initialFOV - camera.fov) > 2) {
+                        console.log('FOV changed significantly, forcing area recalculation');
+                        mesh.userData.initialAreasCalculated = false;
+                        mesh.userData.initialFOV = camera.fov;
+                    }
+
+                    // Calculate initial areas if needed - this should now happen only once
+                    // or after significant FOV changes
+                    if (!mesh.userData.initialAreasCalculated) {
+                        const geometry = mesh.geometry;
+                        const triangleCount = geometry.index ? geometry.index.count / 3 : geometry.attributes.position.count / 3;
+
+                        console.log("Calculating initial areas with current camera state");
+
+                        // Initialize normal-dot products for each triangle
+                        initialNormalDots = calculateNormalDotProducts(geometry, camera, mesh);
+                        hasCalculatedInitialDots = true;
+
+                        // At this point, you've already set up the triangleV1, triangleV2, triangleV3 attributes
+
+                        // Set the flag to indicate initial areas have been calculated
+                        mesh.userData.initialAreasCalculated = true;
+                        hasCalculatedInitialCounts = true;
+
+                        console.log("Initial areas calculated and stored");
+                    }
+
+                    controls.update();
+                    renderer.render(scene, camera);
+                } catch (error) {
+                    console.error("Error in animation loop:", error);
+                }
+            } else {
+                controls.update();
+                renderer.render(scene, camera);
+            }
+        }
+        animate();
+
+        // Easing function for smooth acceleration and deceleration
+        function easeInOutQuad(t) {
+            return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        }
+
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // Initialize with the first model
+        window.addEventListener('DOMContentLoaded', () => {
+            loadModel(publicModels[currentModelIndex]);
+            modelNameDisplay.textContent = `Model: ${publicModels[currentModelIndex]}`;
+        });
+
+        // Create GUI for camera movement controls
+        function setupCameraControls() {
+            const cameraControlsGui = new GUI({ title: 'Camera Controls', width: 300 });
+
+            const cameraParams = {
+                movementMode: 'free',
+                activateMovement: false,
+                cycleDuration: 10,
+                initialDelay: 2,
+                fov: camera.fov, // Add FOV parameter
+                shaderMode: shaderMode // Add shader mode parameter
+            };
+
+            // Add shader mode dropdown first
+            cameraControlsGui.add(cameraParams, 'shaderMode', {
+                'Original Material': 0,
+                'Inpaint Visualization (Color)': 1,
+                'Inpaint Visualization (Transparency)': 2
+            })
+                .name('Shader Mode')
+                .onChange(value => {
+                    // Store current mode
+                    const currentMode = shaderMode;
+                    // Set the target mode
+                    const targetMode = parseInt(value);
+
+                    // Skip if already in that mode
+                    if (currentMode === targetMode) return;
+
+                    // Calculate how many toggles are needed to reach the target mode
+                    let togglesNeeded;
+                    if (targetMode > currentMode) {
+                        togglesNeeded = targetMode - currentMode;
+                    } else {
+                        // Need to cycle through all modes to get back to target
+                        togglesNeeded = (3 - currentMode) + targetMode;
+                    }
+
+                    // Apply the toggles
+                    for (let i = 0; i < togglesNeeded; i++) {
+                        toggleMaterial();
+                    }
+
+                    console.log(`Switched to shader mode: ${targetMode}`);
+                });
+
+            // Add existing camera movement controls
+            cameraControlsGui.add(cameraParams, 'movementMode', ['free', 'zoom', 'rotate', 'spiral', 'sway'])
+                .name('Movement Type')
+                .onChange(value => {
+                    cameraMovementMode = value;
+                    // Reset camera when changing modes
+                    if (cameraAnimationActive) {
+                        resetCameraToOriginal();
+                        cameraAnimationStartTime = performance.now() / 1000;
+                    }
+                });
+
+            // Add FOV control slider
+            cameraControlsGui.add(cameraParams, 'fov', 1, 120, 1)
+                .name('Field of View')
+                .onChange(value => {
+                    camera.fov = value;
+                    camera.updateProjectionMatrix();
+                    console.log('FOV changed to:', value);
+                });
+
+            // Rest of existing camera controls
+            cameraControlsGui.add(cameraParams, 'activateMovement')
+                .name('Activate Movement')
+                .onChange(value => {
+                    cameraAnimationActive = value;
+
+                    if (value) {
+                        // Store original camera position and rotation
+                        originalCameraPosition.copy(camera.position);
+                        originalCameraRotation.copy(camera.rotation);
+                        cameraAnimationStartTime = performance.now() / 1000;
+
+                        // Disable orbit controls when using automated camera movement
+                        if (cameraMovementMode !== 'free') {
+                            controls.enabled = false;
+                        }
+                    } else {
+                        // Re-enable orbit controls when deactivating
+                        controls.enabled = true;
+
+                        // Reset camera position
+                        resetCameraToOriginal();
+                    }
+                });
+
+            cameraControlsGui.add(cameraParams, 'cycleDuration', 5, 30, 1)
+                .name('Cycle Duration (s)')
+                .onChange(value => {
+                    cameraAnimationCycleDuration = value;
+                });
+
+            cameraControlsGui.add(cameraParams, 'initialDelay', 0, 5, 0.5)
+                .name('Initial Delay (s)')
+                .onChange(value => {
+                    cameraAnimationDelay = value;
+                });
+
+            cameraControlsGui.open(); // Start expanded to show the new shader control
+            return cameraControlsGui;
+        }
+
+        // Function to reset camera to original position
+        function resetCameraToOriginal() {
+            // Find the minimum y-value of all vertices in the model
+            if (mesh && mesh.geometry) {
+                const geometry = mesh.geometry;
+                const positionAttribute = geometry.attributes.position;
+                const vertexCount = positionAttribute.count;
+
+                // Initialize with a high value
+                let minY = Infinity;
+
+                // Find the minimum y-value among all vertices
+                const vertex = new THREE.Vector3();
+                for (let i = 0; i < vertexCount; i++) {
+                    vertex.fromBufferAttribute(positionAttribute, i);
+                    // Apply mesh's world transform to get world position
+                    vertex.applyMatrix4(mesh.matrixWorld);
+                    if (vertex.y < minY) {
+                        minY = vertex.y;
+                    }
+                }
+
+                // Set modelCentroid.y to the minimum y-value found
+                if (minY !== Infinity) {
+                    modelCentroid.y = minY;
+                    console.log('Set modelCentroid.y to minimum vertex y-value:', minY);
+                }
+            }
+
+            camera.position.copy(originalCameraPosition);
+            camera.rotation.copy(originalCameraRotation);
+            camera.lookAt(modelCentroid);
+            controls.target.copy(modelCentroid);
+            controls.update();
+        }
+
+        // Add after model loading success
+        function handleCameraAnimation() {
+            if (!cameraAnimationActive || cameraMovementMode === 'free') return;
+
+            const currentTime = performance.now() / 1000;
+            const elapsedTime = currentTime - cameraAnimationStartTime;
+
+            // Wait for initial delay before starting animation
+            if (elapsedTime < cameraAnimationDelay) return;
+
+            const animationTime = elapsedTime - cameraAnimationDelay;
+
+            // Calculate cycle progress (0 to 1)
+            const cycleProgress = (animationTime % cameraAnimationCycleDuration) / cameraAnimationCycleDuration;
+
+            // Use easing for smoother animation
+            const easedProgress = easeInOutQuad(cycleProgress);
+
+            // If we're almost at the end of the cycle, start returning to original position
+            const returnPhase = cycleProgress > 0.8;
+            const returnProgress = returnPhase ? (cycleProgress - 0.8) / 0.2 : 0;
+            const easedReturnProgress = easeInOutQuad(returnProgress);
+
+            switch (cameraMovementMode) {
+                case 'zoom':
+                    animateZoom(easedProgress, returnPhase, easedReturnProgress);
+                    break;
+                case 'rotate':
+                    animateRotation(easedProgress, returnPhase, easedReturnProgress);
+                    break;
+                case 'spiral':
+                    animateSpiral(easedProgress, returnPhase, easedReturnProgress);
+                    break;
+                case 'sway':
+                    animateSway(easedProgress, returnPhase, easedReturnProgress);
+                    break;
+            }
+
+            // Ensure camera is looking at the model centroid
+            camera.lookAt(modelCentroid);
+        }
+
+        // Zoom animation
+        function animateZoom(progress, returnPhase, returnProgress) {
+            if (returnPhase) {
+                // Return to original position
+                camera.position.lerpVectors(
+                    camera.position,
+                    originalCameraPosition,
+                    returnProgress * 0.1
+                );
+                return;
+            }
+
+            // Create look direction vector from the original camera orientation
+            const lookDir = new THREE.Vector3(0, 0, -1).applyEuler(originalCameraRotation);
+
+            // Calculate smooth amplitude curve
+            const amplitude = Math.sin(progress * Math.PI);
+
+            // Distance from camera to centroid
+            const originalDistance = originalCameraPosition.distanceTo(modelCentroid);
+
+            // Calculate zoom pattern - first move INTO the model (negative), then OUT (positive)
+            // Cosine wave centered at 0 gives us -1 → 0 → 1 pattern
+            const zoomFactor = Math.cos(progress * Math.PI * 2 - Math.PI / 2) * amplitude;
+
+            // Use a larger value to ensure we go through the model
+            const maxZoomDistance = originalDistance * 0.8; // 80% of distance to center
+
+            // Apply zoom offset along look direction
+            const newPosition = originalCameraPosition.clone()
+                .add(lookDir.multiplyScalar(maxZoomDistance * zoomFactor));
+
+            camera.position.copy(newPosition);
+        }
+
+        // Rotation animation
+        function animateRotation(progress, returnPhase, returnProgress) {
+            if (returnPhase) {
+                // Smoothly return to original position
+                camera.position.lerpVectors(
+                    camera.position,
+                    originalCameraPosition,
+                    returnProgress * 0.1
+                );
+                return;
+            }
+
+            // Create right and up vectors relative to the original camera orientation
+            const lookDir = new THREE.Vector3(0, 0, -1).applyEuler(originalCameraRotation);
+            const right = new THREE.Vector3(1, 0, 0).applyEuler(originalCameraRotation);
+            const up = new THREE.Vector3(0, 1, 0).applyEuler(originalCameraRotation);
+
+            // Smooth amplitude that goes from 0 to 1 and back to 0
+            const amplitude = Math.sin(progress * Math.PI);
+
+            // Distance from camera to centroid for scaling
+            const originalDistance = originalCameraPosition.distanceTo(modelCentroid);
+            const maxOffset = originalDistance * 0.02; // Maximum 6% offset (20% of original amplitude)
+
+            // Simple circular motion using cos/sin
+            const angle = progress * Math.PI * 2; // Full 360° rotation
+            const horizontalOffset = Math.cos(angle) * maxOffset * amplitude;
+            const verticalOffset = Math.sin(angle) * maxOffset * amplitude;
+
+            // Apply offsets to original camera position in right and up directions
+            const newPosition = originalCameraPosition.clone()
+                .add(right.clone().multiplyScalar(horizontalOffset))
+                .add(up.clone().multiplyScalar(verticalOffset));
+
+            camera.position.copy(newPosition);
+        }
+
+        // Spiral animation
+        function animateSpiral(progress, returnPhase, returnProgress) {
+            if (returnPhase) {
+                // Smoothly return to original position
+                camera.position.lerpVectors(
+                    camera.position,
+                    originalCameraPosition,
+                    returnProgress * 0.1
+                );
+                return;
+            }
+
+            // Create right and up vectors relative to the original camera orientation
+            const lookDir = new THREE.Vector3(0, 0, -1).applyEuler(originalCameraRotation);
+            const right = new THREE.Vector3(1, 0, 0).applyEuler(originalCameraRotation);
+            const up = new THREE.Vector3(0, 1, 0).applyEuler(originalCameraRotation);
+
+            // Smooth amplitude that goes from 0 to 1 and back to 0
+            const amplitude = Math.sin(progress * Math.PI);
+
+            // Distance from camera to centroid for scaling
+            const originalDistance = originalCameraPosition.distanceTo(modelCentroid);
+            const maxOffset = originalDistance * 0.06; // Maximum 6% offset (20% of original amplitude)
+
+            // Simple circular motion using cos/sin
+            const angle = progress * Math.PI * 2 * 1.5; // 1.5 full rotations
+            const horizontalOffset = Math.cos(angle) * maxOffset * amplitude;
+            const verticalOffset = Math.sin(angle) * maxOffset * amplitude;
+
+            // Use cosine wave for zoom to go into and out of the model (-1 → 0 → 1)
+            // Phase shift by -π/2 to start with going into the model
+            const zoomFactor = Math.cos(progress * Math.PI * 2 - Math.PI / 2) * amplitude;
+
+            // Use a larger value for zoom range to ensure we go through the model
+            const maxZoomDistance = originalDistance * 0.8; // 80% of distance to center
+
+            // Apply zoom offset (now with proper in and out motion)
+            const zoomOffset = lookDir.clone().multiplyScalar(maxZoomDistance * zoomFactor);
+
+            // Apply all offsets to original camera position
+            const newPosition = originalCameraPosition.clone()
+                .add(right.clone().multiplyScalar(horizontalOffset))
+                .add(up.clone().multiplyScalar(verticalOffset))
+                .add(zoomOffset);
+
+            camera.position.copy(newPosition);
+        }
+
+        // Add the new sway animation function
+        function animateSway(progress, returnPhase, returnProgress) {
+            if (returnPhase) {
+                // Smoothly return to original position
+                camera.position.lerpVectors(
+                    camera.position,
+                    originalCameraPosition,
+                    returnProgress * 0.1
+                );
+                return;
+            }
+
+            // Create right vector relative to the original camera orientation
+            const right = new THREE.Vector3(1, 0, 0).applyEuler(originalCameraRotation);
+
+            // Distance from camera to centroid for scaling the movement
+            const originalDistance = originalCameraPosition.distanceTo(modelCentroid);
+
+            // Reduce the maximum offset for more subtle movement
+            // Using 6% of distance to model for a more natural look
+            const maxSideOffset = originalDistance * 0.04;
+
+            // Use a sine wave that completes exactly one full cycle (starts and ends at 0)
+            // Use a smoother easing with the sine function for more natural motion
+            const easedSine = Math.sin(progress * Math.PI * 2) * Math.sin(progress * Math.PI);
+
+            // Calculate the side offset using the eased sine wave
+            const sideOffset = easedSine * maxSideOffset;
+
+            // Apply offset only in the right direction (horizontal)
+            const newPosition = originalCameraPosition.clone()
+                .add(right.clone().multiplyScalar(sideOffset));
+
+            camera.position.copy(newPosition);
+        }
+
+        // Function to toggle visibility of all UI controls
+        function toggleControlsVisibility() {
+            controlsVisible = !controlsVisible;
+
+            // Set visibility for all UI elements
+            const visibility = controlsVisible ? 'visible' : 'hidden';
+
+            // First hide any buttons that might be defined
+            const allButtons = document.querySelectorAll('button');
+            allButtons.forEach(button => {
+                button.style.visibility = visibility;
+            });
+
+            // Apply to model name display and any other text elements
+            if (modelNameDisplay) {
+                modelNameDisplay.style.visibility = visibility;
+            }
+
+            // Apply to help text
+            if (helpText) {
+                helpText.style.visibility = visibility;
+            }
+
+            // Handle all divs that might contain text (more thorough approach)
+            const allDivs = document.querySelectorAll('div:not(.lil-gui)');
+            allDivs.forEach(div => {
+                div.style.visibility = visibility;
+            });
+
+            // Handle GUI panels
+            if (controlsVisible) {
+                // Show GUI panels
+                document.querySelectorAll('.lil-gui').forEach(gui => {
+                    gui.style.display = '';
+                });
+            } else {
+                // Hide GUI panels
+                document.querySelectorAll('.lil-gui').forEach(gui => {
+                    gui.style.display = 'none';
+                });
+            }
+
+            console.log(`UI controls ${controlsVisible ? 'shown' : 'hidden'}`);
+        }
+    </script>
+</body>
+
+</html>

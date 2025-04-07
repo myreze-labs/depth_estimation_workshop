@@ -1,0 +1,154 @@
+/* Theme CSS for Myreze-Labs Depth Estimation Workshop */
+
+/* Dark Theme */
+body {
+    background-color: var(--primary-bg);
+    color: var(--text-light);
+}
+
+/* Theme Specific Styles */
+.theme-neon {
+    --text-accent: var(--neon-yellow);
+}
+
+/* Slide Theme Customizations */
+.slides {
+    --slide-bg: var(--primary-bg);
+    --slide-text: var(--text-light);
+    --slide-heading: var(--neon-yellow);
+}
+
+/* Custom Reveal.js Theme Overrides */
+.reveal .slides {
+    background-color: var(--primary-bg);
+}
+
+.reveal h1,
+.reveal h2,
+.reveal h3,
+.reveal h4,
+.reveal h5,
+.reveal h6 {
+    text-shadow: 0 0 10px currentColor;
+}
+
+.reveal h1 {
+    color: var(--neon-yellow);
+}
+
+.reveal h2 {
+    color: var(--neon-green);
+}
+
+.reveal h3 {
+    color: var(--neon-orange);
+}
+
+.reveal pre,
+.reveal code {
+    background-color: var(--tertiary-bg);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+    border-radius: 5px;
+}
+
+.reveal ul,
+.reveal ol {
+    margin: 0 0 0 2em;
+}
+
+.reveal ul li,
+.reveal ol li {
+    margin-bottom: 0.5em;
+}
+
+.reveal .controls {
+    color: var(--neon-blue);
+}
+
+.reveal .progress {
+    background: var(--tertiary-bg);
+}
+
+.reveal .progress span {
+    background: var(--neon-green);
+}
+
+/* Custom Slide Layouts */
+.title-slide {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.two-column {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    height: 100%;
+}
+
+.image-with-caption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.image-with-caption img {
+    max-width: 80%;
+    margin-bottom: 1rem;
+}
+
+.image-with-caption .caption {
+    font-style: italic;
+    font-size: 0.8em;
+    color: var(--text-light);
+}
+
+/* Custom Animations */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.reveal .slides section .fragment.highlight-neon {
+    opacity: 1;
+    visibility: inherit;
+}
+
+.reveal .slides section .fragment.highlight-neon.visible {
+    color: var(--neon-yellow);
+    text-shadow: 0 0 10px var(--neon-yellow);
+}
+
+/* Custom slides-custom.css for the slide presentation */
+.slides h1, 
+.slides h2, 
+.slides h3 {
+    text-transform: none;
+}
+
+.slides code {
+    color: var(--neon-orange);
+}
+
+/* Custom styles for specific components */
+.card[href="slides/index.html"] .card-icon {
+    color: var(--neon-orange);
+}
+
+.card[href="examples/depth_estimation/index.html"] .card-icon {
+    color: var(--neon-blue);
+}
+
+.card[href="resources/index.html"] .card-icon {
+    color: var(--neon-yellow);
+} 

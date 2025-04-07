@@ -1,0 +1,8 @@
+theme: jekyll-theme-minimal
+title: Myreze-Labs: Depth Estimation
+description: Workshop on depth estimation for 3D graphics
+show_downloads: false
+github:
+  is_project_page: true
+  repository_url: https://github.com/myreze-labs/depth_estimation_workshop
+baseurl: /depth_estimation_workshop 

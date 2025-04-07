@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slides - Myreze-Labs: Depth Estimation</title>
+    <link rel="stylesheet" href="reveal.js/dist/reset.css">
+    <link rel="stylesheet" href="reveal.js/dist/reveal.css">
+    <link rel="stylesheet" href="reveal.js/dist/theme/black.css">
+    <link rel="stylesheet" href="../css/slides-custom.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <!-- Title Slide -->
+            <section>
+                <div class="title-slide">
+                    <img src="../images/myreze_logo.svg" alt="Myreze Logo" class="logo-medium">
+                    <h1>Depth Estimation</h1>
+                    <h3>Workshop by Myreze-Labs</h3>
+                </div>
+            </section>
+
+            <!-- Workshop Overview -->
+            <section>
+                <h2>Workshop Overview</h2>
+                <ul>
+                    <li>Machine Learning Basics</li>
+                    <li>Licensing & Models</li>
+                    <li>3D Deep Learning</li>
+                    <li>Depth Estimation Concepts</li>
+                    <li>Point Cloud Meshing</li>
+                    <li>Interactive Exercises</li>
+                    <li>ComfyUI Workflows</li>
+                    <li>Practical Applications</li>
+                </ul>
+            </section>
+
+            <!-- Machine Learning Section -->
+            <section>
+                <section>
+                    <h2>Machine Learning Background</h2>
+                    <p>Basic introduction to machine learning concepts</p>
+                </section>
+                <section>
+                    <h3>What is Machine Learning?</h3>
+                    <p>Systems that learn from data without being explicitly programmed</p>
+                    <img src="images/ml-concept.jpg" alt="Machine Learning Concept" class="stretch">
+                </section>
+                <section>
+                    <h3>Training ML Models</h3>
+                    <ul>
+                        <li>Data collection and preparation</li>
+                        <li>Model architecture selection</li>
+                        <li>Training process</li>
+                        <li>Validation and testing</li>
+                        <li>Deployment</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Installing PyTorch Models</h3>
+                    <pre><code class="python">pip install torch torchvision
+import torch
+model = torch.hub.load('pytorch/vision', 'resnet50', pretrained=True)</code></pre>
+                </section>
+            </section>
+
+            <!-- Licensing Section -->
+            <section>
+                <section>
+                    <h2>Licensing</h2>
+                    <p>Understanding model licenses and constraints</p>
+                </section>
+                <section>
+                    <h3>Common ML Model Licenses</h3>
+                    <ul>
+                        <li>MIT License</li>
+                        <li>Apache License</li>
+                        <li>Creative Commons</li>
+                        <li>Commercial Licenses</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Considerations</h3>
+                    <ul>
+                        <li>Usage rights</li>
+                        <li>Distribution restrictions</li>
+                        <li>Attribution requirements</li>
+                        <li>Commercial vs. non-commercial use</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- 3D Deep Learning Section -->
+            <section>
+                <section>
+                    <h2>3D Deep Learning</h2>
+                    <p>Current challenges and future prospects</p>
+                </section>
+                <section>
+                    <h3>Current Challenges</h3>
+                    <ul>
+                        <li>Computational complexity</li>
+                        <li>Data acquisition</li>
+                        <li>Representation learning</li>
+                        <li>Domain adaptation</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Future Prospects</h3>
+                    <ul>
+                        <li>Real-time 3D reconstruction</li>
+                        <li>Cross-domain understanding</li>
+                        <li>Neural rendering</li>
+                        <li>Generative 3D models</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Depth Estimation Section -->
+            <section>
+                <section>
+                    <h2>Depth Estimation</h2>
+                    <p>From RGB to RGBD</p>
+                </section>
+                <section>
+                    <h3>What is an Image?</h3>
+                    <ul>
+                        <li>2D representation of visual information</li>
+                        <li>RGB pixel values</li>
+                        <li>Missing depth information</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>What is a Point Cloud?</h3>
+                    <ul>
+                        <li>3D coordinates in space</li>
+                        <li>Represents object surfaces</li>
+                        <li>Generated from depth data</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Focal Length & Perspective</h3>
+                    <ul>
+                        <li>Camera parameters</li>
+                        <li>Projection from 3D to 2D</li>
+                        <li>Impact on depth perception</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Meshing of Point Clouds -->
+            <section>
+                <section>
+                    <h2>Meshing of Point Clouds</h2>
+                    <p>Converting points to surfaces</p>
+                </section>
+                <section>
+                    <h3>Meshing Techniques</h3>
+                    <ul>
+                        <li>Delaunay triangulation</li>
+                        <li>Alpha shapes</li>
+                        <li>Poisson surface reconstruction</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>RGB-RGBD Special Case</h3>
+                    <p>Using RTIN (Right-Triangulated Irregular Networks)</p>
+                    <ul>
+                        <li>Optimized for depth maps</li>
+                        <li>Hierarchical representation</li>
+                        <li>Adaptive detail</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Mini Exercises -->
+            <section>
+                <section>
+                    <h2>Mini Exercises</h2>
+                    <p>Based on the examples in the example section</p>
+                </section>
+                <section>
+                    <h3>Discussion Points</h3>
+                    <ul>
+                        <li>How does the approach limit the movement of the viewer?</li>
+                        <li>Where does the model work and not work?</li>
+                        <li>What does depth add to the information from a storytelling perspective?</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- ComfyUI Overview -->
+            <section>
+                <section>
+                    <h2>ComfyUI Overview</h2>
+                    <p>Introduction to the ComfyUI workflow</p>
+                </section>
+                <section>
+                    <h3>What is ComfyUI?</h3>
+                    <ul>
+                        <li>Node-based interface for AI image generation</li>
+                        <li>Customizable workflows</li>
+                        <li>Extensible with plugins</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Basic Workflow</h3>
+                    <ol>
+                        <li>Input image</li>
+                        <li>Apply depth estimation</li>
+                        <li>Post-process depth map</li>
+                        <li>Generate 3D visualization</li>
+                    </ol>
+                </section>
+            </section>
+
+            <!-- Custom Models and Workflows -->
+            <section>
+                <section>
+                    <h2>Custom Models and Workflows</h2>
+                    <p>Depth estimation options in ComfyUI</p>
+                </section>
+                <section>
+                    <h3>ComfyUI-depth-fm</h3>
+                    <ul>
+                        <li><strong>Model:</strong> DepthFM</li>
+                        <li><strong>Features:</strong> Fast, single-step, versatile</li>
+                        <li><strong>Options:</strong> Steps, ensemble size</li>
+                        <li><strong>Use Case:</strong> Quick depth maps for real-time apps</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>ComfyUI-DepthAnythingV2</h3>
+                    <ul>
+                        <li><strong>Model:</strong> Depth Anything V2</li>
+                        <li><strong>Features:</strong> Fine-grained, robust, efficient</li>
+                        <li><strong>Options:</strong> Blur radius, median size, resolution</li>
+                        <li><strong>Use Case:</strong> Detailed 3D effects in digital art</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>ComfyUI-Marigold</h3>
+                    <ul>
+                        <li><strong>Model:</strong> Marigold</li>
+                        <li><strong>Features:</strong> Detailed, flexible, eliminates biases</li>
+                        <li><strong>Options:</strong> n_repeat, n_repeat_batch_size</li>
+                        <li><strong>Use Case:</strong> High-quality depth for VFX/3D modeling</li>
+                    </ul>
+                </section>
+                <section>
+                    <h3>Other Models</h3>
+                    <ul>
+                        <li>ComfyUI-Depth-Pro (ML-Depth-Pro)</li>
+                        <li>ComfyUIDepthEstimation (Transformer models)</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Applications -->
+            <section>
+                <section>
+                    <h2>Practical Applications</h2>
+                    <p>Real-world uses of depth estimation</p>
+                </section>
+                <section>
+                    <h3>Image Upscaling</h3>
+                    <p>Using depth information to improve detail in upscaled images</p>
+                </section>
+                <section>
+                    <h3>Historical Photo Restoration</h3>
+                    <p>Adding depth to bring historical photos to life</p>
+                </section>
+                <section>
+                    <h3>Creative Applications</h3>
+                    <p>Artistic and storytelling uses of depth information</p>
+                </section>
+            </section>
+
+            <!-- Q&A and Resources -->
+            <section>
+                <h2>Questions?</h2>
+                <p>Visit our resources page for more information</p>
+                <a href="../hub.html" class="back-button"><i class="fas fa-home"></i> Back to Hub</a>
+            </section>
+        </div>
+    </div>
+
+    <script src="reveal.js/dist/reveal.js"></script>
+    <script src="reveal.js/plugin/notes/notes.js"></script>
+    <script src="reveal.js/plugin/markdown/markdown.js"></script>
+    <script src="reveal.js/plugin/highlight/highlight.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            controls: true,
+            progress: true,
+            center: true,
+            transition: 'slide',
+            plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
+        });
+    </script>
+</body>
+</html> 
